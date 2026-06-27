@@ -1,0 +1,27 @@
+services:
+  php:
+    build: .
+    container_name: atende_ai_php
+    ports:
+      - "49123:80"
+    volumes:
+      - ./src:/var/www/html
+    depends_on:
+      - postgres
+    command: bash -c "npm install && apache2-foreground"
+
+  postgres:
+    image: postgres:16
+    container_name: atende_ai_postgres
+    restart: always
+    environment:
+      POSTGRES_DB: meu_banco
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: senha123
+    ports:
+      - "5432:5432"
+    volumes:
+      - atende_ai_postgres_data:/var/lib/postgresql/data
+
+volumes:
+  atende_ai_postgres_data:
