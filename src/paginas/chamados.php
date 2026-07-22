@@ -783,7 +783,7 @@
                 Relatórios
             </a>
 
-            <a href="#" class="menu-item-c">
+            <a href="#" class="menu-item-c" id="btn-novo">
                 <i class="bi bi-card-list"></i>
                 Novo
             </a>
@@ -1334,46 +1334,46 @@
                         <div class="mt-5">
                             <div class="d-flex justify-content-between align-items-center mb-3">
                                 <h4 class="fw-bold mb-0 fs-16">Anexo</h4>
-                               <!--
-                                <button class="btn btn-sm">
-                                    <i class="bi bi-three-dots-vertical"></i>
-                                </button>
-                                -->
+                                <!--
+                                 <button class="btn btn-sm">
+                                     <i class="bi bi-three-dots-vertical"></i>
+                                 </button>
+                                 -->
                             </div>
 
                             <table class="table table-hover w-100">
 
                                 <tbody id="listar-arquivos-salvos">
-                                    <tr>
-                                        <td class="decoration-tr">
-                                            <a href="files/pagamentos/PGTO-202606150006/6a2fff2928ea2.pdf" target="_blank" class="fs-14 text-dark txt-white w-100" style="text-decoration: none">
-                                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="#2b8705" viewBox="0 0 24 24">
-                                                    <path d="M16.5 6.5L8.91 14.09a2.5 2.5 0 1 1-3.54-3.54L13 3.91a4 4 0 0 1 5.66 5.66L9.41 18.83a6 6 0 0 1-8.48-8.48l8.49-8.49" fill="none" stroke="#2b8705" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
-                                                </svg>
-                                                05-2026 - CAFAZ CORRETORA - COFINS.pdf
-                                            </a>
-                                        </td>
-                                    </tr>
-                                    <tr>
-                                        <td class="decoration-tr">
-                                            <a href="files/pagamentos/PGTO-202606150006/6a2fff292aaaf.pdf" target="_blank" class="fs-14 text-dark txt-white w-100" style="text-decoration: none">
-                                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="#2b8705" viewBox="0 0 24 24">
-                                                    <path d="M16.5 6.5L8.91 14.09a2.5 2.5 0 1 1-3.54-3.54L13 3.91a4 4 0 0 1 5.66 5.66L9.41 18.83a6 6 0 0 1-8.48-8.48l8.49-8.49" fill="none" stroke="#2b8705" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
-                                                </svg>
-                                                05-2026 - CAFAZ CORRETORA - DEMONSTRATIVO DE
-                                            </a>
-                                        </td>
-                                    </tr>
-                                    <tr>
-                                        <td class="decoration-tr">
-                                            <a href="files/pagamentos/PGTO-202606150006/6a2fff292c50e.xlsx" target="_blank" class="fs-14 text-dark txt-white w-100" style="text-decoration: none">
-                                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="#2b8705" viewBox="0 0 24 24">
-                                                    <path d="M16.5 6.5L8.91 14.09a2.5 2.5 0 1 1-3.54-3.54L13 3.91a4 4 0 0 1 5.66 5.66L9.41 18.83a6 6 0 0 1-8.48-8.48l8.49-8.49" fill="none" stroke="#2b8705" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
-                                                </svg>
-                                                05-2026 - CAFAZ CORRETORA - DEMONSTRATIVO DE
-                                            </a>
-                                        </td>
-                                    </tr>
+                                <tr>
+                                    <td class="decoration-tr">
+                                        <a href="files/pagamentos/PGTO-202606150006/6a2fff2928ea2.pdf" target="_blank" class="fs-14 text-dark txt-white w-100" style="text-decoration: none">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="#2b8705" viewBox="0 0 24 24">
+                                                <path d="M16.5 6.5L8.91 14.09a2.5 2.5 0 1 1-3.54-3.54L13 3.91a4 4 0 0 1 5.66 5.66L9.41 18.83a6 6 0 0 1-8.48-8.48l8.49-8.49" fill="none" stroke="#2b8705" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
+                                            </svg>
+                                            05-2026 - CAFAZ CORRETORA - COFINS.pdf
+                                        </a>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td class="decoration-tr">
+                                        <a href="files/pagamentos/PGTO-202606150006/6a2fff292aaaf.pdf" target="_blank" class="fs-14 text-dark txt-white w-100" style="text-decoration: none">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="#2b8705" viewBox="0 0 24 24">
+                                                <path d="M16.5 6.5L8.91 14.09a2.5 2.5 0 1 1-3.54-3.54L13 3.91a4 4 0 0 1 5.66 5.66L9.41 18.83a6 6 0 0 1-8.48-8.48l8.49-8.49" fill="none" stroke="#2b8705" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
+                                            </svg>
+                                            05-2026 - CAFAZ CORRETORA - DEMONSTRATIVO DE
+                                        </a>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td class="decoration-tr">
+                                        <a href="files/pagamentos/PGTO-202606150006/6a2fff292c50e.xlsx" target="_blank" class="fs-14 text-dark txt-white w-100" style="text-decoration: none">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="#2b8705" viewBox="0 0 24 24">
+                                                <path d="M16.5 6.5L8.91 14.09a2.5 2.5 0 1 1-3.54-3.54L13 3.91a4 4 0 0 1 5.66 5.66L9.41 18.83a6 6 0 0 1-8.48-8.48l8.49-8.49" fill="none" stroke="#2b8705" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
+                                            </svg>
+                                            05-2026 - CAFAZ CORRETORA - DEMONSTRATIVO DE
+                                        </a>
+                                    </td>
+                                </tr>
                                 </tbody>
                             </table>
 
@@ -1522,44 +1522,368 @@
 
                 <!-- COLUNA DIREITA -->
                 <div class="process-right">
-                   <!--
+                    <!--
+                     <div class="p-4">
+                         <h4 class="fw-bold mb-4">Situação</h4>
+
+                         <button class="btn btn-phase w-100 mb-3">
+                             Finalizado
+                             <i class="bi bi-arrow-right"></i>
+                         </button>
+
+                         <button class="btn btn-phase-danger w-100">
+                             Cancelar
+                             <i class="bi bi-arrow-right"></i>
+                         </button>
+
+                         <hr class="my-4">
+
+
+                         <div class="d-flex flex-column gap-3">
+                             <!- -
+                             <a href="#" class="text-decoration-none text-dark txt-white">
+                                 Movimentar chamado
+                             </a> - ->
+                             <div class="row">
+                                 <div class="col-lg-12">
+                                     <label class="form-label"></label>
+                                     <select class="form-select">
+                                         <option selected disabled>Selecione</option>
+                                         <option>Em andamento</option>
+                                         <option>Finalizado</option>
+                                         <option>Solicitar validação</option>
+                                         <option>Cancelar</option>
+                                     </select>
+                                 </div>
+                             </div>
+
+
+                         </div>
+                     </div> -->
+                </div>
+
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL CONTEUDO NOVO -->
+<div class="modal fade modal-processo" id="modal-novo" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered modal-full-custom">
+        <div class="modal-content">
+
+            <button class="btn-close modal-close" data-bs-dismiss="modal"></button>
+
+            <div class="process-layout">
+
+                <!-- COLUNA ESQUERDA -->
+                <div class="process-left">
                     <div class="p-4">
-                        <h4 class="fw-bold mb-4">Situação</h4>
 
-                        <button class="btn btn-phase w-100 mb-3">
-                            Finalizado
-                            <i class="bi bi-arrow-right"></i>
-                        </button>
+                        <!-- HEADER -->
+                        <div class="process-header">
+                            <h3 class="fw-bold mb-2 fs-20">
+                                Lista de Assinaturas - Assembléia Alteração do Estatuto
+                            </h3>
 
-                        <button class="btn btn-phase-danger w-100">
-                            Cancelar
-                            <i class="bi bi-arrow-right"></i>
-                        </button>
+                            <div class="process-subtitle">
+                                Criado por Cleiton Rodrigues • 18/06/2026 16:14
+                            </div>
+                        </div>
+                        <!-- STATUS -->
+                        <div class="mb-4">
+                            <span class="status-badge">
+                                <i class="bi bi-kanban"></i>
+                                Em andamento
+                            </span>
+                        </div>
+                        <!-- GRID -->
+                        <div class="info-grid">
+                            <div class="info-card">
+                                <div class="info-label">
+                                    <i class="bi bi-hash"></i> Nº Chamado
+                                </div>
+                                <div class="info-value">202402070036</div>
+                            </div>
+                            <!--
+                            <div class="info-card">
+                                <div class="info-label">
+                                    <i class="bi-person-plus"></i> Solicitante
+                                </div>
+                                <div class="info-value">Diretoria - Alice macedo</div>
+                            </div>-->
+                            <div>
+                                <div class="form-floating">
+                                    <select class="form-select" id="origem">
+                                        <option value=""></option>
+                                        <option value="">Diretoria - Alice macedo</option>
+                                        <option value="">Diretoria - Alice macedo</option>
+                                    </select>
+                                    <label class="info-label"><i class="bi-person-plus"></i> Solicitante</label>
+                                </div>
+                            </div>
+                            <div class="info-card">
+                                <div class="info-label">
+                                    <i class="bi bi-tag"></i> Tipo de Chamado
+                                </div>
+                                <div class="info-value">Solicitação de Melhoria ou Nova Funcionalidade</div>
+                            </div>
 
-                        <hr class="my-4">
+                            <div class="info-card">
+                                <div class="info-label">
+                                    <i class="bi-person-workspace"></i> Demandado
+                                </div>
+                                <div class="info-value">Tecnologia da Informação / Roger watts</div>
+                            </div>
+
+                        </div>
+
+                        <!-- DESCRIÇÃO -->
+                        <div class="description-box">
 
 
-                        <div class="d-flex flex-column gap-3">
-                            <!- -
-                            <a href="#" class="text-decoration-none text-dark txt-white">
-                                Movimentar chamado
-                            </a> - ->
+                            <div class="text-muted">
+                                <div class="mb-3">
+                                    <label for="" class="form-label">
+                                        <div class="section-title txt-white">
+                                            <i class="bi bi-card-text"></i>
+                                            Descrição
+                                        </div>
+                                    </label>
+                                    <textarea style="resize: none;" class="form-control" id="" rows="7">Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem Ipsum has been the industry's standard dummy text ever since 1966,</textarea>
+                                </div>
+                            </div>
+                        </div>
+                        <!-- ATTACHMENTS -->
+                        <div class="mt-5">
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <h4 class="fw-bold mb-0 fs-16">Anexo</h4>
+                                <!--
+                                 <button class="btn btn-sm">
+                                     <i class="bi bi-three-dots-vertical"></i>
+                                 </button>
+                                 -->
+                            </div>
+
+                            <table class="table table-hover w-100">
+
+                                <tbody id="listar-arquivos-salvos">
+                                <tr>
+                                    <td class="decoration-tr">
+                                        <a href="files/pagamentos/PGTO-202606150006/6a2fff2928ea2.pdf" target="_blank" class="fs-14 text-dark txt-white w-100" style="text-decoration: none">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="#2b8705" viewBox="0 0 24 24">
+                                                <path d="M16.5 6.5L8.91 14.09a2.5 2.5 0 1 1-3.54-3.54L13 3.91a4 4 0 0 1 5.66 5.66L9.41 18.83a6 6 0 0 1-8.48-8.48l8.49-8.49" fill="none" stroke="#2b8705" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
+                                            </svg>
+                                            05-2026 - CAFAZ CORRETORA - COFINS.pdf
+                                        </a>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td class="decoration-tr">
+                                        <a href="files/pagamentos/PGTO-202606150006/6a2fff292aaaf.pdf" target="_blank" class="fs-14 text-dark txt-white w-100" style="text-decoration: none">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="#2b8705" viewBox="0 0 24 24">
+                                                <path d="M16.5 6.5L8.91 14.09a2.5 2.5 0 1 1-3.54-3.54L13 3.91a4 4 0 0 1 5.66 5.66L9.41 18.83a6 6 0 0 1-8.48-8.48l8.49-8.49" fill="none" stroke="#2b8705" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
+                                            </svg>
+                                            05-2026 - CAFAZ CORRETORA - DEMONSTRATIVO DE
+                                        </a>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td class="decoration-tr">
+                                        <a href="files/pagamentos/PGTO-202606150006/6a2fff292c50e.xlsx" target="_blank" class="fs-14 text-dark txt-white w-100" style="text-decoration: none">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="#2b8705" viewBox="0 0 24 24">
+                                                <path d="M16.5 6.5L8.91 14.09a2.5 2.5 0 1 1-3.54-3.54L13 3.91a4 4 0 0 1 5.66 5.66L9.41 18.83a6 6 0 0 1-8.48-8.48l8.49-8.49" fill="none" stroke="#2b8705" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
+                                            </svg>
+                                            05-2026 - CAFAZ CORRETORA - DEMONSTRATIVO DE
+                                        </a>
+                                    </td>
+                                </tr>
+                                </tbody>
+                            </table>
+
+                            <div class="upload-wrapper">
+                                <label for="arquivo-insert" class="custom-file-upload text-dark">
+                                    <i class="bi bi-cloud-arrow-up"></i>
+                                    <span>Selecionar arquivos</span>
+                                </label>
+                                <input type="file" id="arquivo-insert" multiple hidden
+                                       accept=".jpg,.jpeg,.png,.gif,.bmp,
+                                                   .pdf,.txt,.rtf,.ret,
+                                                   .doc,.docx,.xls,.xlsx,.csv,
+                                                   .ppt,.pptx,.pps,
+                                                   .odt,.ods,.odp,
+                                                   .zip,.rar,.7z
+                                                   .mp4">
+                            </div>
+                            <div id="fileList" class="mt-3"></div>
+                            <div id="totalSize" class="mt-2"></div>
+                            <div id="errorMsg" class="text-danger fw-bold mt-2"></div>
+                        </div>
+
+                        <!-- HISTORY -->
+                        <div class="mt-5">
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <h4 class="fw-bold mb-0 fs-16">Histórico de Alterações</h4>
+                            </div>
+
+                            <div class="history-card">
+                                <div class="d-flex justify-content-between mb-2">
+                                    <span class="history-badge warning">Evandro macio</span>
+                                    <strong>Jul 12 às 15:23</strong>
+                                </div>
+                                <div class="text-muted small mb-3">Alterou descrição</div>
+                            </div>
+
+                            <div class="history-card">
+                                <div class="d-flex justify-content-between mb-2">
+                                    <span class="history-badge warning">Anna julia</span>
+                                    <strong>Jul 30 às 11:01</strong>
+                                </div>
+
+                                <div class="text-muted small">Movimentou o chamado para Concluido</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- COLUNA CENTRAL -->
+                <div class="process-center">
+                    <div class="p-4">
+                        <!--
+                        <small class="text-primary fw-semibold">
+                            From HR Requests - Remote
+                        </small> -->
+
+                        <div class="mt-4">
+                            <h4 class="fw-bold">
+
+                                <span class="badge bg-primary-subtle text-primary ms-2">
+                                    Apontamentos
+                                </span>
+                            </h4>
+                        </div>
+
+                        <hr>
+                        <form id="form-apontamentos">
                             <div class="row">
                                 <div class="col-lg-12">
-                                    <label class="form-label"></label>
+                                    <label class="form-label">Tipo de Apontamento</label>
                                     <select class="form-select">
                                         <option selected disabled>Selecione</option>
                                         <option>Em andamento</option>
-                                        <option>Finalizado</option>
-                                        <option>Solicitar validação</option>
+                                        <option>Concluido</option>
                                         <option>Cancelar</option>
+                                        <option>Solicitar validação</option>
                                     </select>
                                 </div>
                             </div>
+                            <div class="row">
+                                <div class="col-lg-12">
+                                    <div class="form-group">
+                                        <label class="fw-700-c-black-fs-16" for="comentarios-insert"></label>
+                                        <textarea class="form-control" id="comentarios-insert" rows="5" maxlength="500" required></textarea>
+                                    </div>
+                                </div>
+                                <div class="upload-wrapper">
+                                    <label for="arquivo-insert-a" class="custom-file-upload text-black" style="padding: 0px 8px; margin-top: 10px;">
+                                        <i class="bi bi-cloud-arrow-up"></i>
+                                        <span>Selecionar arquivos</span>
+                                    </label>
+                                    <input type="file" id="arquivo-insert-a" multiple hidden
+                                           accept=".jpg,.jpeg,.png,.gif,.bmp,
+                                                   .pdf,.txt,.rtf,.ret,
+                                                   .doc,.docx,.xls,.xlsx,.csv,
+                                                   .ppt,.pptx,.pps,
+                                                   .odt,.ods,.odp,
+                                                   .zip,.rar,.7z
+                                                   .mp4">
+                                </div>
+                                <div id="fileList-a" class="mt-3"></div>
+                                <div id="totalSize-a" class="mt-2"></div>
+                                <div id="errorMsg-a" class="text-danger fw-bold mt-2"></div>
+                                <div class="mt-1">
+                                    <h4></h4>
+                                    <button type="submit" class="btn btn-link text-decoration-none p-0 mt-3 mb-3">
+                                        + Adicionar Apontamento
+                                    </button>
+                                </div>
+                            </div>
+                        </form>
 
 
+
+                        <div class=row>
+                            <div class="card p-3 mt-4" style="border-left: 6px solid #f0f0f0; border-radius: 12px;">
+                                <div class="d-flex align-items-start">
+                                    <div>
+                                        <strong class="d-block mb-2" style="font-size: 14px;">LEONARDO.GOMES</strong>
+                                        <p class="mb-2 text-justify" style="line-height: 1.5;font-size: 13px;">
+                                            Referente COFINS, competência 05/2026. Valor: R$ 29.568,16. vencimento 25/06/2026.
+
+                                            BO - 85800000295 2 68160385261 5 76071626162 4 74728902803 6
+                                        </p>
+                                        <small class="text-muted">15/06/2026 10:33</small>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="card p-3 mt-4" style="border-left: 6px solid #f0f0f0; border-radius: 12px;">
+                                <div class="d-flex align-items-start">
+                                    <div>
+                                        <strong class="d-block mb-2" style="font-size: 14px;">LEONARDO.GOMES</strong>
+                                        <p class="mb-2 text-justify" style="line-height: 1.5;font-size: 13px;">
+                                            Referente COFINS, competência 05/2026. Valor: R$ 29.568,16. vencimento 25/06/2026.
+
+                                            BO - 85800000295 2 68160385261 5 76071626162 4 74728902803 6
+                                        </p>
+                                        <small class="text-muted">15/06/2026 10:33</small>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
-                    </div> -->
+
+                    </div>
+                </div>
+
+                <!-- COLUNA DIREITA -->
+                <div class="process-right">
+                    <!--
+                     <div class="p-4">
+                         <h4 class="fw-bold mb-4">Situação</h4>
+
+                         <button class="btn btn-phase w-100 mb-3">
+                             Finalizado
+                             <i class="bi bi-arrow-right"></i>
+                         </button>
+
+                         <button class="btn btn-phase-danger w-100">
+                             Cancelar
+                             <i class="bi bi-arrow-right"></i>
+                         </button>
+
+                         <hr class="my-4">
+
+
+                         <div class="d-flex flex-column gap-3">
+                             <!- -
+                             <a href="#" class="text-decoration-none text-dark txt-white">
+                                 Movimentar chamado
+                             </a> - ->
+                             <div class="row">
+                                 <div class="col-lg-12">
+                                     <label class="form-label"></label>
+                                     <select class="form-select">
+                                         <option selected disabled>Selecione</option>
+                                         <option>Em andamento</option>
+                                         <option>Finalizado</option>
+                                         <option>Solicitar validação</option>
+                                         <option>Cancelar</option>
+                                     </select>
+                                 </div>
+                             </div>
+
+
+                         </div>
+                     </div> -->
                 </div>
 
             </div>
@@ -1850,6 +2174,13 @@
             // TODO
 
 
+
+        });
+
+        // TODO
+        $( "#btn-novo" ).on( "click", function() {
+
+            $("#modal-novo").modal("show");
 
         });
 
