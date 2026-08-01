@@ -8,7 +8,7 @@ export default function TopBar() {
           </span>
           <input
             className="w-full bg-surface-container-low border border-outline-variant rounded-full py-2 pl-10 pr-4 text-body-md focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all"
-            placeholder="Pesquisar tickets, clientes..."
+            placeholder="Pesquisar chamados"
             type="text"
           />
         </div>
