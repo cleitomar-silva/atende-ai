@@ -27,6 +27,8 @@ export default function Login() {
         throw new Error(data.message || 'Erro ao fazer login')
       }
 
+      
+
       navigate('/dashboard')
     } catch (err) {
       setError(err.message || 'Erro ao fazer login')

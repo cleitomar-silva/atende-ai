@@ -63,11 +63,15 @@ export default function SideNav() {
             <a href="/empresa" className="flex items-center gap-3 px-md py-sm rounded-lg text-on-surface-variant hover:bg-surface-container-high transition-colors duration-200 ease-in-out">
               <span className="font-body-md text-body-md">Empresa</span>
             </a>
-            {['Usuários', 'Setor', 'Classificação'].map((item) => (
-              <a key={item} className="flex items-center gap-3 px-md py-sm rounded-lg text-on-surface-variant hover:bg-surface-container-high transition-colors duration-200 ease-in-out" href="#">
-                <span className="font-body-md text-body-md">{item}</span>
-              </a>
-            ))}
+            <a href="/setor" className="flex items-center gap-3 px-md py-sm rounded-lg text-on-surface-variant hover:bg-surface-container-high transition-colors duration-200 ease-in-out">
+              <span className="font-body-md text-body-md">Setor</span>
+            </a>
+            <a href="/usuario" className="flex items-center gap-3 px-md py-sm rounded-lg text-on-surface-variant hover:bg-surface-container-high transition-colors duration-200 ease-in-out">
+              <span className="font-body-md text-body-md">Usuários</span>
+            </a>
+            <a href="/categoria" className="flex items-center gap-3 px-md py-sm rounded-lg text-on-surface-variant hover:bg-surface-container-high transition-colors duration-200 ease-in-out">
+              <span className="font-body-md text-body-md">Categoria</span>
+            </a>
           </div>
         </div>
       )}

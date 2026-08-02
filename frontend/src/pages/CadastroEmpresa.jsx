@@ -43,13 +43,13 @@ export default function CadastroEmpresa() {
             <span className="material-symbols-outlined text-[16px]">chevron_right</span>
             <a href="/empresa" className="font-label-md text-label-md hover:text-primary transition-colors">Empresas</a>
             <span className="material-symbols-outlined text-[16px]">chevron_right</span>
-            <span className="font-label-md text-label-md text-primary font-bold">Novo Cadastro</span>
+            <span className="font-label-md text-label-md text-on-surface font-semibold">Nova Empresa</span>
           </div>
 
           <div className="mb-xl flex justify-between items-end">
             <div>
-              <h1 className="font-display-lg text-display-lg text-on-surface">Cadastro de Empresa</h1>
-              <p className="font-body-lg text-body-lg text-on-surface-variant">
+              <h1 className="font-headline-md text-headline-md text-on-surface">Cadastro de Empresa</h1>
+              <p className="font-body-md text-body-md text-on-surface-variant">
                 Registre novas organizações parceiras no ecossistema do AtendeAí.
               </p>
             </div>
@@ -65,40 +65,34 @@ export default function CadastroEmpresa() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-lg">
                   <div className="flex flex-col gap-xs">
                     <label className="font-label-md text-label-md text-on-surface-variant px-xs" htmlFor="company_name">Nome da Empresa</label>
-                    <div className="relative">
-                      <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline">business</span>
-                      <input
-                        className="w-full pl-10 pr-md py-md border border-outline rounded-xl focus:border-primary focus:ring-0 text-body-lg transition-colors placeholder:text-outline-variant focus:outline-none"
-                        id="company_name"
-                        name="company_name"
-                        placeholder="Ex: TechSolutions Brasil S.A."
-                        required
-                        type="text"
-                      />
-                    </div>
+                    <input
+                      className="w-full px-md py-md border border-outline-variant rounded-xl focus:border-primary focus:ring-0 text-body-md transition-colors placeholder:text-outline-variant focus:outline-none"
+                      id="company_name"
+                      name="company_name"
+                      placeholder="Ex: TechSolutions Brasil S.A."
+                      required
+                      type="text"
+                    />
                   </div>
                   <div className="flex flex-col gap-xs">
                     <label className="font-label-md text-label-md text-on-surface-variant px-xs" htmlFor="cnpj">CNPJ</label>
-                    <div className="relative">
-                      <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline">id_card</span>
-                      <input
-                        className="w-full pl-10 pr-md py-md border border-outline rounded-xl focus:border-primary focus:ring-0 text-body-lg transition-colors placeholder:text-outline-variant focus:outline-none"
-                        id="cnpj"
-                        name="cnpj"
-                        placeholder="00.000.000/0000-00"
-                        value={cnpj}
-                        onChange={(e) => setCnpj(formatarCnpj(e.target.value))}
-                        required
-                        type="text"
-                      />
-                    </div>
+                    <input
+                      className="w-full px-md py-md border border-outline-variant rounded-xl focus:border-primary focus:ring-0 text-body-md transition-colors placeholder:text-outline-variant focus:outline-none"
+                      id="cnpj"
+                      name="cnpj"
+                      placeholder="00.000.000/0000-00"
+                      value={cnpj}
+                      onChange={(e) => setCnpj(formatarCnpj(e.target.value))}
+                      required
+                      type="text"
+                    />
                   </div>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-lg mt-md">
                   <div className="flex flex-col gap-xs">
                     <label className="font-label-md text-label-md text-on-surface-variant px-xs">Segmento de Atuação</label>
-                    <select className="w-full px-md py-md border border-outline rounded-xl focus:border-primary focus:ring-0 text-body-lg bg-white focus:outline-none">
+                    <select className="w-full px-md py-md border border-outline-variant rounded-xl focus:border-primary focus:ring-0 text-body-md bg-white focus:outline-none">
                       <option>Tecnologia da Informação</option>
                       <option>Logística &amp; Transportes</option>
                       <option>Saúde &amp; Bem-estar</option>
@@ -125,15 +119,16 @@ export default function CadastroEmpresa() {
                   <button
                     type="button"
                     onClick={() => navigate('/empresa')}
-                    className="px-xl py-md border border-outline text-on-surface-variant font-title-lg text-title-lg rounded-xl hover:bg-surface-container-high transition-all active:scale-95"
+                    className="px-lg py-sm rounded-xl font-label-md text-label-md text-secondary border border-outline-variant hover:bg-surface-container-high transition-colors active:scale-95 flex items-center gap-sm"
                   >
+                    <span className="material-symbols-outlined text-[20px]">close</span>
                     Cancelar
                   </button>
                   <button
                     type="submit"
-                    className="px-xl py-md bg-primary text-on-primary font-title-lg text-title-lg rounded-xl shadow-lg shadow-primary/20 hover:opacity-90 transition-all active:scale-95 flex items-center gap-sm"
+                    className="px-xl py-sm rounded-xl font-label-md text-label-md bg-primary text-on-primary shadow-sm hover:opacity-90 transition-all active:scale-95 flex items-center gap-sm"
                   >
-                    <span className="material-symbols-outlined">save</span>
+                    <span className="material-symbols-outlined text-[20px]">check</span>
                     Salvar Empresa
                   </button>
                 </div>
