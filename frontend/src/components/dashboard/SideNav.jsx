@@ -61,16 +61,16 @@ export default function SideNav() {
           <p className="px-sm pb-md text-label-md font-label-md text-on-surface-variant uppercase tracking-wide">Configurações</p>
           <div className="space-y-1">
             <a href="/empresa" className="flex items-center gap-3 px-md py-sm rounded-lg text-on-surface-variant hover:bg-surface-container-high transition-colors duration-200 ease-in-out">
-              <span className="font-body-md text-body-md">Empresa</span>
+              <span className="font-body-md text-body-md">Empresas</span>
             </a>
             <a href="/setor" className="flex items-center gap-3 px-md py-sm rounded-lg text-on-surface-variant hover:bg-surface-container-high transition-colors duration-200 ease-in-out">
-              <span className="font-body-md text-body-md">Setor</span>
+              <span className="font-body-md text-body-md">Setores</span>
             </a>
             <a href="/usuario" className="flex items-center gap-3 px-md py-sm rounded-lg text-on-surface-variant hover:bg-surface-container-high transition-colors duration-200 ease-in-out">
               <span className="font-body-md text-body-md">Usuários</span>
             </a>
             <a href="/categoria" className="flex items-center gap-3 px-md py-sm rounded-lg text-on-surface-variant hover:bg-surface-container-high transition-colors duration-200 ease-in-out">
-              <span className="font-body-md text-body-md">Categoria</span>
+              <span className="font-body-md text-body-md">Categorias</span>
             </a>
           </div>
         </div>
