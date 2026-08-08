@@ -1,0 +1,312 @@
+# SISTEMA DE CHAMADOS (ATENDE.AI)
+
+## VISÃO GERAL
+
+Sistema multiempresa de gerenciamento de chamados. Cada empresa cadastra seus setores, usuários, grupos, categorias, classificações e situações, e todo o conteúdo exibido é restringido à empresa do usuário logado. Nenhuma informação de outras empresas pode aparecer.
+
+### Regras globais
+- **Multiempresa:** todas as listagens, buscas e relatórios exibem somente os registros cadastrados por usuários da própria empresa do usuário logado.
+- **Auditoria:** todas as telas devem ter histórico de auditoria.
+- **Menu superior:** deve conter um campo de busca que pesquise por número do chamado, parte do título ou descrição, incluindo também os apontamentos/comentários feitos nos chamados. Deve haver também um avatar do usuário que, ao ser clicado, exibe as opções "Meu Perfil" e "Sair".
+- **Notificação:** notificar o solicitante sempre que alguma informação for atualizada em um chamado.
+
+---
+
+## 1. TELA DE LOGIN
+
+- Campos: **e-mail** e **senha**.
+- Opções: **Criar uma conta** e **Esqueci minha senha**.
+- Ao clicar em "Criar uma conta", o usuário é redirecionado para o fluxo de cadastro na seguinte ordem:
+  1. Cadastrar a **empresa**;
+  2. Cadastrar um **setor**;
+  3. Cadastrar o **usuário** (para acesso ao login);
+  4. Em seguida, ir para a página de chamados.
+
+> Instruções detalhadas de cada cadastro estão nas respectivas seções abaixo.
+
+---
+
+## 2. TELA DE EMPRESA
+
+Permite o gerenciamento dos registros de empresa.
+
+### Funcionalidades
+- Cadastrar
+- Editar
+
+### Tela de cadastro
+- **Nome da Empresa** (obrigatório)
+- **CNPJ** (obrigatório)
+
+### Tela de edição
+- **Nome da Empresa** (obrigatório)
+- **CNPJ** (obrigatório)
+- **Status** (ativo ou desativado)
+
+### Regras de negócio
+- O CNPJ deve ser validado quanto ao formato e aos dígitos verificadores.
+- Não é permitido cadastrar duas empresas com o mesmo CNPJ.
+- Todos os campos obrigatórios devem ser validados antes da gravação.
+- Caso a empresa seja **bloqueada** (desativada), todos os usuários pertencentes a ela não poderão acessar o sistema.
+- Permitir auditoria.
+- **Controle de acesso:** a tela de cadastro fica disponível somente no momento em que o usuário está criando sua conta. Após cadastrado, o usuário com **permissão de administrador** pode editar as informações; usuários com outro tipo de acesso somente visualizam as informações da empresa.
+
+---
+
+## 3. TELA DE SETOR
+
+Permite o gerenciamento completo dos registros de setor.
+
+### Funcionalidades
+- Cadastrar, Editar, Excluir, Pesquisar.
+
+### Tela de pesquisa
+- Exibe a lista dos setores cadastrados com as colunas: **Nome do setor**, **Status** e **Ações** (ícones de editar e excluir).
+- A pesquisa permite localizar pelo **Nome do setor**.
+
+### Tela de cadastro
+- **Nome do setor** (obrigatório)
+
+### Tela de edição
+- **Nome do setor** (obrigatório)
+- **Status** (ativo ou desativado)
+
+### Regras de negócio
+- Ao gravar, o setor é vinculado à empresa a que o usuário pertence.
+- Não é permitido cadastrar dois setores com o mesmo nome na mesma empresa.
+- Todos os campos obrigatórios devem ser validados antes da gravação.
+- Permitir auditoria.
+- A tela de pesquisa lista somente os registros cadastrados por usuários da mesma empresa.
+- Somente usuários com **permissão de administrador** podem acessar essa página.
+- Caso o setor esteja **desativado**, ele é listado apenas nessa tela, exceto se já foi vinculado em outra tela — nesse caso fica restrito apenas para **novos** chamados.
+
+---
+
+## 4. TELA DE CADASTRO DE USUÁRIOS
+
+Permite o gerenciamento completo dos usuários do sistema.
+
+### Funcionalidades
+- Cadastrar, Editar, Excluir, Pesquisar.
+
+### Tela de pesquisa
+- Exibe a lista dos usuários cadastrados com as colunas: **Tipo de permissão**, **Setor**, **Nome**, **E-mail**, **Status** e **Ações** (ícones de editar e excluir).
+- A pesquisa deve permitir localizar usuário por **nome**, **Setor**, **Status** ou **Tipo de permissão**.
+
+### Tela de cadastro
+- **Nome**
+- **E-mail**
+- **Senha**
+- **Setor**
+- **Nível de permissão**: Administrador, Gestor ou Colaborador
+
+### Tela de edição
+- **Nome**
+- **E-mail**
+- **Senha**
+- **Setor**
+- **Nível de permissão**: Administrador, Gestor ou Colaborador
+- **Status** (ativo ou desativado)
+
+### Regras de negócio
+- Não é permitido cadastrar dois usuários com o mesmo e-mail na mesma empresa.
+- O usuário deve pertencer à empresa do usuário logado.
+- Um usuário pode pertencer a **mais de um setor**.
+- Permitir auditoria.
+- A tela de pesquisa lista apenas os usuários da mesma empresa.
+- Caso o usuário esteja **desativado**, ele é listado apenas nessa tela, exceto se já foi vinculado em outra tela — nesse caso fica restrito apenas para **novos** chamados.
+
+---
+
+## 5. TELA DE GRUPO
+
+Permite o gerenciamento completo dos grupos.
+
+### Funcionalidades
+- Cadastrar, Editar, Excluir, Pesquisar.
+
+### Tela de pesquisa
+- Lista com as colunas: **Nome do grupo**, **Status** e **Ações** (ícones de editar e excluir).
+
+### Tela de cadastro
+- **Nome do grupo**
+
+### Tela de edição
+- **Nome do grupo**
+- **Status**
+
+### Regras de negócio
+- A pesquisa lista apenas os grupos da mesma empresa.
+- Não é permitido cadastrar o mesmo nome de grupo na mesma empresa.
+- Permitir auditoria.
+- **Padrão:** o grupo com nome **"Suporte"** deve ser criado automaticamente para cada empresa cadastrada. Cada empresa pode excluí-lo sem afetar as demais.
+- Caso o grupo esteja **desativado**, ele é listado apenas nessa tela, exceto se já foi vinculado em outra tela — nesse caso fica restrito apenas para **novos** chamados.
+
+---
+
+## 6. TELA DE CATEGORIA
+
+Permite o gerenciamento completo das categorias.
+
+### Funcionalidades
+- Cadastrar, Editar, Excluir, Pesquisar.
+
+### Tela de pesquisa
+- Lista com as colunas: **Nome da categoria**, **Status** e **Ações** (ícones de editar e excluir).
+
+### Tela de cadastro
+- **Nome da categoria**
+
+### Tela de edição
+- **Nome da categoria**
+- **Status**
+
+### Regras de negócio
+- A pesquisa lista apenas as categorias da mesma empresa.
+- Não é permitido cadastrar o mesmo nome de categoria na mesma empresa.
+- Permitir auditoria.
+- **Padrão:** as categorias **"Incidente"**, **"Melhoria"** e **"Requisição"** devem ser criadas automaticamente por empresa. Cada empresa pode excluí-las sem afetar as demais.
+- Caso a categoria esteja **desativada**, ela é listada apenas nessa tela, salvo se já foi vinculada a outra tela — nesse caso fica restrita apenas para **novos** chamados.
+
+---
+
+## 8. TELA DE CLASSIFICAÇÃO DO CHAMADO
+
+Permite o gerenciamento completo das classificações de chamado.
+
+### Funcionalidades
+- Cadastrar, Editar, Excluir, Pesquisar.
+
+### Tela de pesquisa
+- Exibe uma lista de classificações com as colunas: **Grupo**, **Nome da classificação**, **Setor habilitado**, **Status** e **Ações** (ícones de editar e excluir).
+- A pesquisa deve permitir localizar pelo **nome da classificação** e **status**.
+
+### Tela de cadastro
+- **Grupo**
+- **Nome da classificação**
+- **Setores habilitados** (pode ser um ou vários)
+- **Categoria**
+- **SLA** (em minutos)
+- **Descrição padrão**
+
+### Tela de edição
+- **Grupo**
+- **Nome da classificação**
+- **Setores habilitados** (pode ser um ou vários)
+- **Categoria**
+- **SLA** (em minutos)
+- **Status** (ativo ou desativado)
+- **Descrição padrão**
+
+### Regras de negócio
+- Não é permitido cadastrar o mesmo nome de classificação para os mesmos setores habilitados dentro da mesma empresa.
+- Permitir auditoria.
+- A pesquisa lista apenas as classificações da mesma empresa.
+- **Padrão:** criar automaticamente as classificações **"Processos Internos"** (grupo "Suporte", categoria "Incidente") e **"Acesso"** (grupo "Suporte", categoria "Requisição") para cada empresa. Cada empresa pode excluí-las sem afetar as demais.
+
+---
+
+## 9. TELA DE SITUAÇÃO DO CHAMADO
+
+Permite o gerenciamento completo das situações/status de chamado.
+
+### Funcionalidades
+- Cadastrar, Editar, Excluir, Pesquisar.
+
+### Tela de pesquisa
+- Lista com as colunas: **Nome da situação**, **Cor** e **Ações** (ícones de editar e excluir).
+
+### Tela de cadastro
+- **Nome da situação**
+- **Cor** (seletor de cores para escolha)
+- **Conta SLA de atendimento** (Sim/Não)
+
+### Tela de edição
+- **Nome da situação**
+- **Cor** (seletor de cores para escolha)
+- **Conta SLA de atendimento** (Sim/Não)
+- **Status** (ativo/desativado)
+
+### Regras de negócio
+- Não é permitido cadastrar o mesmo nome de situação na mesma empresa.
+- Permitir auditoria.
+- **Padrão:** criar automaticamente por empresa as situações **"Não iniciado"**, **"Em atendimento"**, **"Aguardando validação"**, **"Concluído"** e **"Cancelar"**, com cores padrão. Cada empresa pode excluí-las sem afetar as demais.
+- **Transições de situação (definidas aqui ou em tela própria e vinculadas ao chamado):**
+  - Quando a situação for **"Aguardando validação"**, o usuário solicitante pode **concluir** ou **recusar** a validação — ao recusar, o chamado volta ao andamento ("Em atendimento").
+  - Quando a situação for **"Não iniciado"**, o responsável pelo chamado só pode selecionar **"Em atendimento"** ou **"Concluído"**.
+
+---
+
+## 10. TELA DE CHAMADOS
+
+Permite o gerenciamento completo dos chamados.
+
+### Funcionalidades
+- Cadastrar, Editar, Excluir, Pesquisar.
+
+### Tela de cadastro
+- **Setor demandado**
+- **Tipo de chamado** (classificação)
+- **Setor solicitante**
+- **Título**
+- **Descrição**
+- **Anexos**
+
+### Tela de edição
+- Editar apenas os campos: **Classificação**, **Título**, **Descrição** e **Anexos**.
+
+### Tela de pesquisa
+- Lista dos chamados com as colunas: **Número do chamado**, **Data de abertura**, **Título**, **Situação**, **Setor e usuário solicitante**, **Setor e usuário demandado** e **Ações** (ícones de editar e visualizar).
+- Filtros disponíveis: **Data de abertura**, **Data de apontamento** (comentários dentro do chamado), **Setor solicitante**, **Usuário solicitante**, **Setor demandado**, **Usuário demandado**, **Classificação**, **Título** e **Descrição**.
+
+### Tela de visualização
+- Exibe todos os registros/informações do chamado.
+- Permite a interação por meio de **comentários/apontamentos** entre o usuário demandado e o solicitante.
+- Permite **alterar a situação** do chamado.
+
+### Regras de negócio
+- **Número do chamado:** ao cadastrar, o sistema deve gerar um número que não se repita para outro chamados da mesma empresa. Cada empresa tem sua própria sequência.
+- **Setor solicitante:** o usuário deve selecionar o Setor Solicitante na abertura do chamado **somente se estiver vinculado a mais de um setor**. Caso esteja em apenas um setor, o campo não deve ser exibido; o sistema deve identificar automaticamente o único setor vinculado ao usuário e gravá-lo junto com o chamado.
+- **Usuário solicitante:** deve ser identificado e registrado automaticamente no banco no momento da gravação do chamado.
+- **Anexos:** é permitido inserir vários anexos, desde que o total de todos os arquivos não ultrapasse **50 MB**.
+- **Transições conforme definidas na Tela de Situação:** por exemplo, o demandado altera determinadas situações e o solicitante pode alterar outras (ex.: situação "Aguardando validação" concluída/recusada pelo solicitante; "Não iniciado" só pode ir para "Em atendimento" ou "Concluído" pelo responsável).
+
+---
+
+## 11. TELA DE RELATÓRIO
+
+1. Exibir de acordo com os chamados em que o **setor responsável pertence ao usuário**.
+2. Mostrar indicadores, gráficos e listagem de chamados de acordo com os filtros aplicados.
+3. Filtros disponíveis: **data de abertura**, **data de apontamento**, **setores solicitantes**, **Situação**, **Categoria** e **Grupo**.
+4. Para usuários com **permissão de administrador**, exibir ainda o filtro de **Setor responsável** (listando todos os setores da empresa).
+
+---
+
+## 12. TELA DE INDICADORES
+
+1. Exibe as informações de acordo com o **setor em que o usuário está cadastrado**.
+2. Exibe indicadores com gráficos.
+3. **Tabela 1:** a primeira coluna lista os chamados **agrupados por Grupo**; as demais colunas são as **categorias**; o conteúdo de cada célula é o **somatório** de chamados daquele grupo naquela categoria (ex.: categoria "Melhorias" = 6 chamados). A **última coluna** é o **somatório total da linha**, e a **última linha** é o **total de cada coluna**.
+4. **Tabela 2:** mesma regra da tabela anterior, porém agrupando a primeira coluna pelo **responsável/demandado** do chamado.
+5. Exibe um **kanban** com as situações dos chamados: o título de cada coluna é a **situação** e o conteúdo são os **chamados** naquela situação.
+6. **Filtros** (no início da página, aplicam-se a todo o conteúdo):
+   - **Setor:** exibir os chamados em que o setor do usuário é o responsável; caso o usuário esteja em mais de um setor, listar os setores em que está cadastrado para seleção.
+   - **Mês/Ano** em que os chamados foram criados.
+   - **Grupo** e **Categoria**.
+
+---
+
+## 13. TELA DE MEU PERFIL
+
+Possibilita ao usuário alterar sua **senha**, **nome** e **e-mail**.
+
+---
+
+## 14. TELA DE OPERAÇÕES (DESFAZER / AUDITORIA)
+
+O sistema deve permitir **desfazer** as seguintes ações, com base no histórico de auditoria:
+- **Desfazer um cadastro:** remover o registro criado.
+- **Desfazer uma edição:** restaurar os dados anteriores.
+- **Desfazer uma exclusão:** restaurar o registro excluído.
+
+Somente usuários com **permissão de administrador** podem desfazer operações registradas no histórico de auditoria.
