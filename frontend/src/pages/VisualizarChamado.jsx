@@ -33,6 +33,7 @@ export default function VisualizarChamado() {
   const [linkOpen, setLinkOpen] = useState(false)
   const [linkQuery, setLinkQuery] = useState('')
   const [linkResults, setLinkResults] = useState([])
+  const [linkSearching, setLinkSearching] = useState(false)
   const [editForm, setEditForm] = useState({ classification_id: '', title: '', description: '', responsible_user_id: '' })
 
   const applyTicketData = useCallback((d) => {
@@ -313,15 +314,19 @@ export default function VisualizarChamado() {
     const query = q.trim()
     if (query.length < 2) {
       setLinkResults([])
+      setLinkSearching(false)
       return
     }
+    setLinkSearching(true)
     try {
-      const d = await api('/tickets', { query: { q: query, per_page: 8 } })
+      const d = await api('/tickets', { query: { q: query, per_page: 8, linkable: 1 } })
       const already = new Set([Number(id), ...linkedTickets.map((t) => t.id)])
       const items = (d.tickets?.data || []).filter((t) => !already.has(t.id))
       setLinkResults(items)
     } catch {
       setLinkResults([])
+    } finally {
+      setLinkSearching(false)
     }
   }
 
@@ -534,9 +539,12 @@ export default function VisualizarChamado() {
                 if (c.is_internal) {
                   return (
                     <div key={c.id} className="flex justify-center animate-slide-in flex-col items-center gap-1.5">
+                      <span className="text-[11px] text-on-surface-variant">
+                        <span className="font-semibold text-on-surface">{c.user?.name || 'Sistema'}</span> · {formatDate(c.created_at)}
+                      </span>
                       <span className="inline-flex items-center gap-2 rounded-full px-lg py-sm bg-amber-100/80 text-amber-800 text-label-md font-medium max-w-full">
                         <span className="material-symbols-outlined text-[16px] shrink-0">sticky_note_2</span>
-                        <span className="whitespace-pre-wrap"><strong>{c.user?.name}:</strong> {c.content}</span>
+                        <span className="whitespace-pre-wrap"><strong>Nota Interna:</strong> {c.content}</span>
                       </span>
                       {c.attachments?.length > 0 && (
                         <div className="flex flex-wrap gap-sm justify-center">
@@ -790,6 +798,13 @@ export default function VisualizarChamado() {
                     <p className="text-label-md font-bold text-primary">#{t.number}</p>
                     <p className="text-body-md font-semibold text-on-surface truncate">{t.title || 'Sem título'}</p>
                     <div className="mt-1.5"><StatusChip label={t.situation?.name || '—'} color={t.situation?.color} /></div>
+                    {t.linked_at && (
+                      <p className="text-label-md text-on-surface-variant mt-1 flex items-center gap-1">
+                        <span className="material-symbols-outlined text-[14px]">link</span>
+                        Vinculado {formatDate(t.linked_at)}
+                        {t.linked_by?.name ? <> por {t.linked_by.name}</> : null}
+                      </p>
+                    )}
                   </div>
                   <button
                     type="button"
@@ -831,7 +846,11 @@ export default function VisualizarChamado() {
                   placeholder="Buscar por nº, título ou descrição…"
                   className={`${inputClass} !rounded-xl`}
                 />
-                {linkResults.length > 0 ? (
+                {linkSearching ? (
+                  <div className="flex justify-center py-md">
+                    <Spinner />
+                  </div>
+                ) : linkResults.length > 0 ? (
                   <ul className="max-h-48 overflow-y-auto custom-scrollbar space-y-1">
                     {linkResults.map((r) => (
                       <li key={r.id}>
@@ -1040,8 +1059,8 @@ function Stat({ icon, tint, label, value }) {
         <span className="material-symbols-outlined text-[20px]">{icon}</span>
       </div>
       <div className="min-w-0">
-        <p className="text-[11px] font-bold uppercase tracking-wide text-on-surface-variant truncate">{label}</p>
-        <p className="text-body-md font-bold text-on-surface truncate">{value || '—'}</p>
+        <p className="text-[11px] font-bold uppercase tracking-wide text-on-surface-variant break-words">{label}</p>
+        <p className="text-body-md font-bold text-on-surface break-words">{value || '—'}</p>
       </div>
     </div>
   )

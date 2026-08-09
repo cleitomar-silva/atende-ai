@@ -32,7 +32,7 @@ class TicketController extends Controller
             'responsibleSector', 'responsibleUser', 'requestingSector', 'requestingUser', 'situation',
         ])->where('company_id', $companyId);
 
-        if (! $user->isAdmin()) {
+        if (! $user->isAdmin() && ! $request->boolean('linkable')) {
             $sectorIds = $user->sectors()->pluck('sectors.id');
 
             $query->where(function ($q) use ($user, $sectorIds, $request) {
@@ -109,8 +109,10 @@ class TicketController extends Controller
             'classification.group', 'classification.category', 'classification.sectors',
             'responsibleSector', 'responsibleUser.sectors', 'requestingSector',
             'requestingUser.sectors', 'situation',
-            'comments.user', 'comments.attachments', 'attachments.user',
+            'comments.user.sectors', 'comments.attachments', 'attachments.user',
         ]);
+
+        $ticket->setRelation('comments', $this->visibleComments($ticket, $user));
 
         $allowedIds = $this->allowedTransitionIds($ticket, $user);
 
@@ -388,7 +390,9 @@ class TicketController extends Controller
 
         Auditor::record('Ticket', 'comment', $ticket->id, "Comentário em chamado #{$ticket->number}.", null, ['comment_id' => $comment->id]);
 
-        $this->notifyRequester($ticket, $this->commentNotificationText($ticket, $request));
+        if (! $comment->is_internal) {
+            $this->notifyRequester($ticket, $this->commentNotificationText($ticket, $request));
+        }
 
         return response()->json(['comment' => $comment->load('user', 'attachments')], 201);
     }
@@ -479,17 +483,51 @@ class TicketController extends Controller
         return Ticket::where('company_id', $request->user()->company_id)->findOrFail($id);
     }
 
+    private function visibleComments(Ticket $ticket, User $user): \Illuminate\Support\Collection
+    {
+        $userSectorIds = $user->sectors()->pluck('sectors.id');
+
+        return $ticket->comments->filter(function (TicketComment $comment) use ($userSectorIds) {
+            if (! $comment->is_internal) {
+                return true;
+            }
+
+            $authorSectorIds = $comment->user?->sectors?->pluck('id') ?? collect();
+
+            return $userSectorIds->intersect($authorSectorIds)->isNotEmpty();
+        })->values();
+    }
+
     private function linkedTickets(Request $request, Ticket $ticket): \Illuminate\Support\Collection
     {
-        return Ticket::where('company_id', $request->user()->company_id)
-            ->where(function ($q) use ($ticket) {
-                $q->whereHas('links', fn ($l) => $l->where('linked_ticket_id', $ticket->id))
-                  ->orWhereHas('linksReceived', fn ($l) => $l->where('ticket_id', $ticket->id));
-            })
-            ->where('id', '!=', $ticket->id)
+        $links = TicketLink::where('ticket_id', $ticket->id)
+            ->orWhere('linked_ticket_id', $ticket->id)
+            ->with('user:id,name')
+            ->get();
+
+        $ids = $links
+            ->map(fn ($l) => $l->ticket_id === $ticket->id ? $l->linked_ticket_id : $l->ticket_id)
+            ->filter(fn ($id) => $id !== $ticket->id)
+            ->unique()
+            ->values();
+
+        $tickets = Ticket::where('company_id', $request->user()->company_id)
+            ->whereIn('id', $ids)
             ->with('situation', 'classification')
             ->orderBy('number')
             ->get();
+
+        return $tickets->map(function (Ticket $t) use ($links, $ticket) {
+            $link = $links->first(function ($l) use ($t, $ticket) {
+                return ($l->ticket_id === $ticket->id && $l->linked_ticket_id === $t->id)
+                    || ($l->ticket_id === $t->id && $l->linked_ticket_id === $ticket->id);
+            });
+
+            $t->linked_at = $link?->created_at;
+            $t->linked_by = $link && $link->user ? ['id' => $link->user->id, 'name' => $link->user->name] : null;
+
+            return $t;
+        });
     }
 
     private function allowedTransitionIds(Ticket $ticket, User $user): array
