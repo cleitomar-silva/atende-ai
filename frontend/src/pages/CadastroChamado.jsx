@@ -22,6 +22,11 @@ export default function CadastroChamado() {
   })
   const [attachments, setAttachments] = useState([])
 
+  const maxAttachmentBytes = 15 * 1024 * 1024
+  const attachmentsBytes = attachments.reduce((sum, f) => sum + (f.size || 0), 0)
+  const overAttachmentLimit = attachmentsBytes > maxAttachmentBytes
+  const overAttachmentBytes = attachmentsBytes - maxAttachmentBytes
+
   const showRequestingSector = (user?.sectors || []).length > 1
 
   useEffect(() => {
@@ -64,6 +69,13 @@ export default function CadastroChamado() {
       setError(err.message)
       setSaving(false)
     }
+  }
+
+  const onAddFiles = (e) => {
+    const files = Array.from(e.target.files || [])
+    if (files.length === 0) return
+    setAttachments((prev) => [...prev, ...files])
+    e.target.value = ''
   }
 
   return (
@@ -134,10 +146,22 @@ export default function CadastroChamado() {
               <input
                 type="file"
                 multiple
-                onChange={(e) => setAttachments((prev) => [...prev, ...Array.from(e.target.files || [])])}
+                onChange={onAddFiles}
                 className="block w-full text-label-md text-on-surface-variant file:mr-md file:mb-sm file:px-md file:py-sm file:rounded-lg file:border-0 file:bg-primary file:text-on-primary file:cursor-pointer"
               />
-              <p className="text-label-md text-on-surface-variant mt-sm">Total máximo de anexos: 50 MB.</p>
+              <div className="flex items-center gap-2 mt-sm">
+                <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-label-md font-semibold ${overAttachmentLimit ? 'text-error bg-error-container/50' : 'text-on-surface-variant bg-black/5'}`}>
+                  <span className="material-symbols-outlined text-[15px]">monitor_weight</span>
+                  <span className="whitespace-nowrap">{(attachmentsBytes / 1024 / 1024).toFixed(1)} / 15 MB</span>
+                </span>
+                <p className="text-label-md text-on-surface-variant">Total máximo de anexos: 15 MB.</p>
+              </div>
+              {overAttachmentLimit && (
+                <div className="mt-sm flex items-center gap-2 rounded-lg bg-error-container/60 px-3 py-2 text-label-md font-medium text-error">
+                  <span className="material-symbols-outlined text-[20px] shrink-0">error</span>
+                  <span>Limite de 15 MB excedido em {(overAttachmentBytes / 1024 / 1024).toFixed(1)} MB. Remova alguns arquivos para continuar.</span>
+                </div>
+              )}
               {attachments.length > 0 && (
                 <ul className="mt-md space-y-sm">
                   {attachments.map((f, i) => (
@@ -159,7 +183,7 @@ export default function CadastroChamado() {
             <button type="button" onClick={() => navigate(-1)} className="px-md py-sm rounded-lg text-on-surface-variant hover:bg-surface-container-low transition-colors">
               Cancelar
             </button>
-            <button type="submit" disabled={saving} className="flex items-center gap-sm bg-primary text-on-primary px-md py-sm rounded-lg font-label-md hover:bg-surface-tint disabled:opacity-60 transition-all">
+            <button type="submit" disabled={saving || overAttachmentLimit} className="flex items-center gap-sm bg-primary text-on-primary px-md py-sm rounded-lg font-label-md hover:bg-surface-tint disabled:opacity-60 transition-all">
               {saving ? 'Abrindo…' : 'Abrir Chamado'}
             </button>
           </div>

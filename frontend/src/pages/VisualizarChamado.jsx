@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import PageShell from '../components/dashboard/PageShell.jsx'
 import { Spinner, inputClass } from '../components/dashboard/ui.jsx'
@@ -20,29 +20,43 @@ export default function VisualizarChamado() {
   const [history, setHistory] = useState([])
   const [loading, setLoading] = useState(true)
   const [comment, setComment] = useState('')
+  const [commentFiles, setCommentFiles] = useState([])
+  const commentFileRef = useRef(null)
   const [isInternal, setIsInternal] = useState(false)
+  const [commentFlow, setCommentFlow] = useState({ step: 'choose', target: null, responsible_id: '' })
+  const [commentFlowOpen, setCommentFlowOpen] = useState(false)
   const [sending, setSending] = useState(false)
   const [error, setError] = useState('')
   const [editing, setEditing] = useState(false)
+  const [historyOpen, setHistoryOpen] = useState(false)
+  const [linkedTickets, setLinkedTickets] = useState([])
+  const [linkOpen, setLinkOpen] = useState(false)
+  const [linkQuery, setLinkQuery] = useState('')
+  const [linkResults, setLinkResults] = useState([])
   const [editForm, setEditForm] = useState({ classification_id: '', title: '', description: '', responsible_user_id: '' })
+
+  const applyTicketData = useCallback((d) => {
+    setTicket(d.ticket)
+    setAvailable(d.available_situations || [])
+    setHistory(d.history || [])
+    setLinkedTickets(d.linked_tickets || [])
+    setEditForm({
+      classification_id: String(d.ticket.classification_id),
+      title: d.ticket.title,
+      description: d.ticket.description,
+      responsible_user_id: d.ticket.responsible_user_id ? String(d.ticket.responsible_user_id) : '',
+    })
+  }, [])
 
   const load = useCallback(() => {
     setLoading(true)
     api(`/tickets/${id}`)
-      .then((d) => {
-        setTicket(d.ticket)
-        setAvailable(d.available_situations || [])
-        setHistory(d.history || [])
-        setEditForm({
-          classification_id: String(d.ticket.classification_id),
-          title: d.ticket.title,
-          description: d.ticket.description,
-          responsible_user_id: d.ticket.responsible_user_id ? String(d.ticket.responsible_user_id) : '',
-        })
-      })
+      .then(applyTicketData)
       .catch(() => navigate('/chamados'))
       .finally(() => setLoading(false))
-  }, [id])
+  }, [id, applyTicketData])
+
+  const refresh = useCallback(() => api(`/tickets/${id}`).then(applyTicketData), [id, applyTicketData])
 
   useEffect(() => {
     api('/classifications')
@@ -71,28 +85,107 @@ export default function VisualizarChamado() {
   const isRequester = ticket.requesting_user_id === user?.id
   const isResponsible = ticket.responsible_user_id === user?.id
   const isAdmin = user?.role === 'admin'
+  const isDemandedSectorMember = (user?.sectors || []).some((s) => s.id === ticket.responsible_sector_id)
   const canSendComment = isRequester || isResponsible || isAdmin
   const canEdit = isResponsible || isAdmin
+  const nonCommentAttachments = (ticket.attachments || []).filter((a) => !a.ticket_comment_id)
+
+  const maxAttachmentBytes = 15 * 1024 * 1024
+  const commentTotalBytes = commentFiles.reduce((sum, f) => sum + (f.size || 0), 0)
+  const overAttachmentLimit = commentTotalBytes > maxAttachmentBytes
+  const overAttachmentBytes = commentTotalBytes - maxAttachmentBytes
 
   const sendComment = async (e) => {
     e.preventDefault()
-    if (!comment.trim()) return
+    if (!comment.trim() && commentFiles.length === 0) return
+    if (isInternal) {
+      await saveComment(null, '')
+      return
+    }
+    if (!ticket.responsible_user_id && isDemandedSectorMember) {
+      setCommentFlow({ step: 'chooseResponsible', target: null, responsible_id: '' })
+      setCommentFlowOpen(true)
+      return
+    }
+    if (available.length === 0) {
+      await saveComment(null, '')
+      return
+    }
+    setCommentFlow({ step: 'choose', target: null, responsible_id: '' })
+    setCommentFlowOpen(true)
+  }
+
+  const continueToSituation = async () => {
+    if (!commentFlow.responsible_id || sending) return
     setSending(true)
     setError('')
     try {
-      await api(`/tickets/${id}/comments`, {
-        method: 'POST',
-        body: { content: comment, is_internal: isInternal },
+      await api(`/tickets/${id}`, {
+        method: 'PUT',
+        body: {
+          classification_id: Number(ticket.classification_id),
+          title: ticket.title,
+          description: ticket.description,
+          responsible_user_id: Number(commentFlow.responsible_id),
+          keep_existing_attachments: true,
+        },
       })
-      setComment('')
-      setIsInternal(false)
-      load()
-      toast.success(isInternal ? 'Nota interna registrada.' : 'Resposta enviada com sucesso.')
+      await refresh()
+      setCommentFlow((p) => ({ ...p, step: 'choose' }))
     } catch (err) {
       toast.error(err.message)
     } finally {
       setSending(false)
     }
+  }
+
+  const saveComment = async (target, responsibleId) => {
+    setSending(true)
+    setError('')
+    try {
+      if (responsibleId && Number(responsibleId) !== Number(ticket.responsible_user_id)) {
+        await api(`/tickets/${id}`, {
+          method: 'PUT',
+          body: {
+            classification_id: Number(ticket.classification_id),
+            title: ticket.title,
+            description: ticket.description,
+            responsible_user_id: Number(responsibleId),
+            keep_existing_attachments: true,
+          },
+        })
+      }
+      if (target) {
+        await api(`/tickets/${id}/situation`, { method: 'POST', body: { situation_id: Number(target.id) } })
+      }
+      const body = new FormData()
+      body.append('content', comment)
+      body.append('is_internal', isInternal ? '1' : '0')
+      commentFiles.forEach((file) => body.append('attachments[]', file))
+      const data = await api(`/tickets/${id}/comments`, { method: 'POST', body })
+      const savedCount = data?.comment?.attachments?.length ?? 0
+      if (commentFiles.length > 0 && savedCount !== commentFiles.length) {
+        throw new Error('Alguns arquivos não puderam ser gravados. Tente novamente.')
+      }
+      setComment('')
+      setCommentFiles([])
+      setIsInternal(false)
+      setCommentFlowOpen(false)
+      setCommentFlow({ step: 'choose', target: null, responsible_id: '' })
+      load()
+      toast.success('Registro realizado com sucesso!')
+    } catch (err) {
+      toast.error(err.message)
+    } finally {
+      setSending(false)
+    }
+  }
+
+  const onCommentFiles = (e) => {
+    const files = Array.from(e.target.files || [])
+    if (files.length === 0) return
+    setCommentFiles((prev) => [...prev, ...files])
+    e.target.value = ''
   }
 
   const changeSituation = async (situationId) => {
@@ -181,6 +274,57 @@ export default function VisualizarChamado() {
       .catch(() => setError('Não foi possível baixar o anexo.'))
   }
 
+  const linkTicket = async (target) => {
+    setSending(true)
+    setError('')
+    try {
+      const data = await api(`/tickets/${id}/links`, { method: 'POST', body: { linked_ticket_id: target.id } })
+      setLinkedTickets(data.linked_tickets || [])
+      setLinkResults([])
+      setLinkQuery('')
+      toast.success(`Chamado #${target.number} vinculado.`)
+    } catch (err) {
+      toast.error(err.message)
+    } finally {
+      setSending(false)
+    }
+  }
+
+  const unlinkTicket = async (target) => {
+    const ok = await confirm({
+      title: 'Remover vínculo',
+      message: `Remover o vínculo com o chamado #${target.number}?`,
+      confirmText: 'Remover',
+      danger: true,
+    })
+    if (!ok) return
+    setError('')
+    try {
+      const data = await api(`/tickets/${id}/links/${target.id}`, { method: 'DELETE' })
+      setLinkedTickets(data.linked_tickets || [])
+      toast.success('Vínculo removido.')
+    } catch (err) {
+      toast.error(err.message)
+    }
+  }
+
+  const onLinkQuery = async (q) => {
+    setLinkQuery(q)
+    const query = q.trim()
+    if (query.length < 2) {
+      setLinkResults([])
+      return
+    }
+    try {
+      const d = await api('/tickets', { query: { q: query, per_page: 8 } })
+      const already = new Set([Number(id), ...linkedTickets.map((t) => t.id)])
+      const items = (d.tickets?.data || []).filter((t) => !already.has(t.id))
+      setLinkResults(items)
+    } catch {
+      setLinkResults([])
+    }
+  }
+
   return (
     <PageShell>
       <button
@@ -240,7 +384,9 @@ export default function VisualizarChamado() {
         </div>
       )}
 
-      {/* Painel principal */}
+      <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_330px] gap-lg items-start">
+        <div className="space-y-lg min-w-0">
+        {/* Painel principal */}
       <div className="relative overflow-hidden rounded-[28px] bg-[rgba(255,255,255,0.9)] shadow-[0_40px_80px_-40px_rgba(15,40,120,0.35)] ring-1 ring-black/5">
         <div className="pointer-events-none absolute -top-28 -right-24 h-80 w-80 rounded-full bg-gradient-to-br from-primary/15 via-primary/5 to-transparent blur-2xl"></div>
         <div className="pointer-events-none absolute -bottom-32 left-1/4 h-72 w-72 rounded-full bg-gradient-to-tr from-secondary-container/50 to-transparent blur-3xl"></div>
@@ -316,17 +462,17 @@ export default function VisualizarChamado() {
                   <span className="material-symbols-outlined text-on-surface-variant">attach_file</span>
                   <p className="font-title-lg text-title-lg text-on-surface">Anexos</p>
                   <span className="text-label-md font-semibold text-on-surface-variant bg-black/5 rounded-full px-2 py-0.5">
-                    {ticket.attachments?.length || 0}
+                    {nonCommentAttachments.length}
                   </span>
                 </div>
-                {ticket.attachments?.length === 0 ? (
+                {nonCommentAttachments.length === 0 ? (
                   <div className="flex items-center gap-md px-md py-lg rounded-2xl bg-black/[0.03] text-on-surface-variant">
                     <span className="material-symbols-outlined text-outline">inbox</span>
                     <span className="font-body-md text-body-md">Nenhum anexo.</span>
                   </div>
                 ) : (
                   <div className="flex flex-wrap gap-md">
-                    {ticket.attachments.map((att) => (
+                    {nonCommentAttachments.map((att) => (
                       <div
                         key={att.id}
                         className="group flex items-center gap-md rounded-2xl bg-white p-2 shadow-sm ring-1 ring-black/5 hover:shadow-md hover:ring-primary/30 transition-all"
@@ -359,7 +505,6 @@ export default function VisualizarChamado() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_330px] gap-lg items-start">
         {/* Conversa */}
         <div className="rounded-[28px] overflow-hidden bg-white shadow-[0_40px_80px_-50px_rgba(9,30,66,0.4)] ring-1 ring-black/5">
           <div className="px-lg pt-lg pb-md flex items-center gap-md">
@@ -388,11 +533,29 @@ export default function VisualizarChamado() {
               ticket.comments.map((c) => {
                 if (c.is_internal) {
                   return (
-                    <div key={c.id} className="flex justify-center animate-slide-in">
-                      <span className="inline-flex items-center gap-2 rounded-full px-lg py-sm bg-amber-100/80 text-amber-800 text-label-md font-medium">
+                    <div key={c.id} className="flex justify-center animate-slide-in flex-col items-center gap-1.5">
+                      <span className="inline-flex items-center gap-2 rounded-full px-lg py-sm bg-amber-100/80 text-amber-800 text-label-md font-medium max-w-full">
                         <span className="material-symbols-outlined text-[16px] shrink-0">sticky_note_2</span>
                         <span className="whitespace-pre-wrap"><strong>{c.user?.name}:</strong> {c.content}</span>
                       </span>
+                      {c.attachments?.length > 0 && (
+                        <div className="flex flex-wrap gap-sm justify-center">
+                          {c.attachments.map((att) => (
+                            <button
+                              key={att.id}
+                              onClick={() => downloadAttachment(att)}
+                              title={`Baixar ${att.original_name}`}
+                              className="flex items-center gap-2 rounded-lg bg-gray-100 px-2.5 py-2 text-left max-w-[240px] min-w-0 hover:bg-gray-200 transition-all"
+                            >
+                              <span className="material-symbols-outlined text-[22px] text-primary shrink-0">description</span>
+                              <span className="min-w-0">
+                                <span className="block text-label-md font-semibold text-black truncate">{att.original_name}</span>
+                                <span className="block text-[11px] text-gray-500">{formatSize(att.size)}</span>
+                              </span>
+                            </button>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   )
                 }
@@ -414,6 +577,24 @@ export default function VisualizarChamado() {
                         }`}
                       >
                         <p className="font-body-md text-body-md whitespace-pre-wrap">{c.content}</p>
+{c.attachments?.length > 0 && (
+                        <div className={`flex flex-wrap gap-sm mt-2 ${mine ? 'justify-end' : ''}`}>
+                          {c.attachments.map((att) => (
+                            <button
+                              key={att.id}
+                              onClick={() => downloadAttachment(att)}
+                              title={`Baixar ${att.original_name}`}
+                              className="flex items-center gap-2 rounded-lg bg-gray-100 px-2.5 py-2 text-left max-w-[240px] min-w-0 hover:bg-gray-200 transition-all"
+                            >
+                              <span className="material-symbols-outlined text-[22px] text-primary shrink-0">description</span>
+                              <span className="min-w-0">
+                                <span className="block text-label-md font-semibold text-black truncate">{att.original_name}</span>
+                                <span className="block text-[11px] text-gray-500">{formatSize(att.size)}</span>
+                              </span>
+                            </button>
+                          ))}
+                        </div>
+                      )}
                       </div>
                     </div>
                   </div>
@@ -432,7 +613,20 @@ export default function VisualizarChamado() {
                   Nota Interna
                 </Toggler>
               </div>
-              <div className="rounded-2xl bg-black/[0.02] p-2 focus-within:bg-white transition-all">
+              <div className="rounded-2xl bg-black/[0.02] p-2 border border-primary/40 focus-within:bg-white focus-within:border-primary transition-all">
+                {commentFiles.length > 0 && (
+                  <div className="flex flex-wrap gap-sm px-2 pt-2">
+                    {commentFiles.map((f, i) => (
+                      <span key={i} className="inline-flex items-center gap-1.5 rounded-full bg-black/5 px-3 py-1 text-label-md text-on-surface-variant max-w-[220px]">
+                        <span className="material-symbols-outlined text-[15px] shrink-0">attach_file</span>
+                        <span className="truncate">{f.name}</span>
+                        <button type="button" onClick={() => setCommentFiles((prev) => prev.filter((x) => x !== f))} className="text-on-surface-variant hover:text-error transition-colors shrink-0">
+                          <span className="material-symbols-outlined text-[15px]">close</span>
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                )}
                 <textarea
                   className="w-full bg-transparent border-none outline-none focus:ring-0 p-md min-h-[90px] text-body-md resize-none placeholder:text-outline"
                   rows={3}
@@ -440,11 +634,31 @@ export default function VisualizarChamado() {
                   value={comment}
                   onChange={(e) => setComment(e.target.value)}
                 ></textarea>
+                {overAttachmentLimit && (
+                  <div className="mx-2 mb-2 flex items-center gap-2 rounded-lg bg-error-container/60 px-3 py-2 text-label-md font-medium text-error animate-slide-in">
+                    <span className="material-symbols-outlined text-[20px] shrink-0">error</span>
+                    <span>Limite de 15 MB por comentário excedido em {(overAttachmentBytes / 1024 / 1024).toFixed(1)} MB. Remova alguns arquivos para continuar.</span>
+                  </div>
+                )}
                 <div className="flex justify-end items-center gap-md px-2 pb-2">
                   <p className="text-label-md text-on-surface-variant mr-auto">{isInternal ? 'Somente a equipe verá.' : 'O solicitante receberá por e-mail.'}</p>
+                  <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-label-md font-semibold ${overAttachmentLimit ? 'bg-error-container/50 text-error' : 'bg-black/5 text-on-surface-variant'}`} title="Limite de 15 MB por comentário">
+                    <span className="material-symbols-outlined text-[15px]">monitor_weight</span>
+                    <span className="whitespace-nowrap">Anexos: {(commentTotalBytes / 1024 / 1024).toFixed(1)} / 15 MB</span>
+                  </div>
+                  <input ref={commentFileRef} type="file" multiple className="hidden" onChange={onCommentFiles} />
+                  <button
+                    type="button"
+                    onClick={() => commentFileRef.current?.click()}
+                    disabled={overAttachmentLimit}
+                    title={overAttachmentLimit ? 'Limite de 15 MB atingido' : 'Anexar arquivo'}
+                    className="p-2 rounded-full text-on-surface-variant hover:text-primary hover:bg-primary/10 transition-all disabled:opacity-40 disabled:hover:text-on-surface-variant disabled:hover:bg-transparent"
+                  >
+                    <span className="material-symbols-outlined text-[20px]">attach_file</span>
+                  </button>
                   <button
                     type="submit"
-                    disabled={sending || !comment.trim()}
+                    disabled={sending || overAttachmentLimit || (!comment.trim() && commentFiles.length === 0)}
                     className="inline-flex items-center gap-2 rounded-full bg-primary text-white px-lg py-2 font-headline-sm font-semibold text-label-md shadow-lg shadow-primary/25 hover:opacity-90 disabled:opacity-50 transition-all"
                   >
                     {sending ? 'Gravando…' : 'Gravar'}
@@ -454,6 +668,74 @@ export default function VisualizarChamado() {
               </div>
             </form>
           )}
+        </div>
+
+        {/* Histórico (recolhido por padrão) */}
+        <div className="rounded-[24px] bg-white/[0.9] shadow-[0_24px_50px_-30px_rgba(9,30,66,0.35)] ring-1 ring-black/5 overflow-hidden">
+          <button
+            type="button"
+            onClick={() => setHistoryOpen((v) => !v)}
+            className="w-full flex items-center justify-between gap-3 px-6 py-5 text-left hover:bg-black/[0.02] transition-colors cursor-pointer"
+          >
+            <h3 className="text-label-md font-bold uppercase tracking-[0.18em] text-on-surface-variant">Histórico</h3>
+            <span className="flex items-center gap-2 shrink-0">
+              <span className="text-label-md font-semibold text-on-surface-variant bg-black/5 rounded-full px-2.5 py-1 whitespace-nowrap">
+                {history.length} {history.length === 1 ? 'evento' : 'eventos'}
+              </span>
+              <span className={`material-symbols-outlined text-on-surface-variant transition-transform ${historyOpen ? 'rotate-180' : ''}`}>expand_more</span>
+            </span>
+          </button>
+          {historyOpen && (
+            <div className="px-6 pb-6">
+              {history.length === 0 ? (
+                <p className="text-body-md text-on-surface-variant text-center py-md">Nenhum evento registrado ainda.</p>
+              ) : (
+                <ul className="space-y-4 relative">
+                  <div className="absolute left-[13px] top-2 bottom-2 w-px bg-black/10"></div>
+                  {history.map((h) => {
+                    const meta = historyMeta(h.action)
+                    const changes = historyChanges(h)
+                    return (
+                      <li key={h.id} className="relative flex gap-3 animate-fade-in">
+                        <div
+                          className="w-7 h-7 rounded-full flex items-center justify-center shrink-0 z-10"
+                          style={{ backgroundColor: `${meta.color}18`, color: meta.color, boxShadow: `0 0 0 3px #fff` }}
+                        >
+                          <span className="material-symbols-outlined text-[16px]">{meta.icon}</span>
+                        </div>
+                        <div className="min-w-0">
+                          <p className="font-body-md font-semibold text-on-surface leading-snug">{meta.label}</p>
+                          <p className="text-label-md text-on-surface-variant flex items-center gap-1.5 mt-0.5">
+                            <span className="material-symbols-outlined text-[14px]">person</span>
+                            <span className="font-semibold text-on-surface">{h.user?.name || 'Sistema'}</span>
+                            <span>· {formatDate(h.created_at)}</span>
+                          </p>
+                          {changes && changes.length > 0 ? (
+                            <div className="mt-2 space-y-2">
+                              {changes.map((d) => (
+                                <div key={d.label} className="rounded-lg bg-black/[0.03] px-3 py-2">
+                                  <p className="text-label-md font-bold uppercase tracking-wide text-on-surface-variant">{d.label}</p>
+                                  <p className="text-label-md text-on-surface-variant mt-1 leading-relaxed break-words">
+                                    <span className="font-semibold">Antes:</span> <span className="whitespace-pre-wrap line-through decoration-error/70">{d.old}</span>
+                                  </p>
+                                  <p className="text-label-md text-on-surface mt-0.5 leading-relaxed break-words">
+                                    <span className="font-semibold">Agora:</span> <span className="whitespace-pre-wrap">{d.new}</span>
+                                  </p>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <p className="text-label-md text-on-surface mt-1 leading-relaxed whitespace-pre-wrap line-clamp-2">{h.summary}</p>
+                          )}
+                        </div>
+                      </li>
+                    )
+                  })}
+                </ul>
+              )}
+            </div>
+          )}
+        </div>
         </div>
 
         {/* Barra lateral */}
@@ -486,44 +768,249 @@ export default function VisualizarChamado() {
                 <PersonLine name={ticket.responsible_user?.name || 'Não atribuído'} role="Responsável" />
               </div>
             </Section>
-
-            <Section title="Histórico">
-              <p className="text-body-md text-on-surface-variant">{history.length} {history.length === 1 ? 'evento' : 'eventos'} registrados</p>
-            </Section>
           </div>
 
-          <div className="rounded-[24px] bg-white/[0.9] p-6 shadow-[0_24px_50px_-30px_rgba(9,30,66,0.35)] ring-1 ring-black/5">
-            <h3 className="text-label-md font-bold uppercase tracking-[0.18em] text-on-surface-variant mb-5">Atividade</h3>
-            {history.length === 0 ? (
-              <p className="text-body-md text-on-surface-variant text-center py-md">Nenhum evento registrado ainda.</p>
+<div className="rounded-[24px] bg-white/[0.9] p-6 shadow-[0_24px_50px_-30px_rgba(9,30,66,0.35)] ring-1 ring-black/5 space-y-4 !mb-[50px]">
+          <div className="flex items-center justify-between gap-3">
+            <h3 className="text-label-md font-bold uppercase tracking-[0.18em] text-on-surface-variant">Chamados vinculados</h3>
+            <span className="text-label-md font-semibold text-on-surface-variant bg-black/5 rounded-full px-2.5 py-1 whitespace-nowrap">{linkedTickets.length}</span>
+          </div>
+
+          {linkedTickets.length === 0 ? (
+            <p className="text-body-md text-on-surface-variant">Nenhum chamado vinculado.</p>
+          ) : (
+            <ul className="space-y-3">
+              {linkedTickets.map((t) => (
+                <li
+                  key={t.id}
+                  className="group flex items-center gap-3 rounded-xl bg-black/[0.03] p-3 hover:bg-primary/5 transition-colors cursor-pointer"
+                  onClick={() => navigate(`/chamados/${t.id}`)}
+                >
+                  <div className="min-w-0 flex-1">
+                    <p className="text-label-md font-bold text-primary">#{t.number}</p>
+                    <p className="text-body-md font-semibold text-on-surface truncate">{t.title || 'Sem título'}</p>
+                    <div className="mt-1.5"><StatusChip label={t.situation?.name || '—'} color={t.situation?.color} /></div>
+                  </div>
+                  <button
+                    type="button"
+                    title="Remover vínculo"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      unlinkTicket(t)
+                    }}
+                    className="p-1.5 rounded-full text-on-surface-variant hover:text-error hover:bg-error-container/30 opacity-0 group-hover:opacity-100 transition-all"
+                  >
+                    <span className="material-symbols-outlined text-[18px]">link_off</span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+
+          <div>
+            <button
+              type="button"
+              onClick={() => {
+                setLinkOpen((v) => !v)
+                if (linkOpen) {
+                  setLinkQuery('')
+                  setLinkResults([])
+                }
+              }}
+              className="w-full inline-flex items-center justify-center gap-1.5 rounded-full border border-primary/30 px-3 py-2 text-label-md font-semibold text-primary hover:bg-primary/5 transition-all"
+            >
+              <span className="material-symbols-outlined text-[18px]">{linkOpen ? 'close' : 'add_link'}</span>
+              {linkOpen ? 'Cancelar' : 'Vincular chamado'}
+            </button>
+
+            {linkOpen && (
+              <div className="mt-3 space-y-2">
+                <input
+                  value={linkQuery}
+                  onChange={(e) => onLinkQuery(e.target.value)}
+                  placeholder="Buscar por nº, título ou descrição…"
+                  className={`${inputClass} !rounded-xl`}
+                />
+                {linkResults.length > 0 ? (
+                  <ul className="max-h-48 overflow-y-auto custom-scrollbar space-y-1">
+                    {linkResults.map((r) => (
+                      <li key={r.id}>
+                        <button
+                          type="button"
+                          onClick={() => linkTicket(r)}
+                          className="w-full flex items-center gap-2 rounded-lg px-2 py-1.5 text-left hover:bg-primary/10 transition-colors"
+                        >
+                          <span className="text-label-md font-bold text-primary shrink-0">#{r.number}</span>
+                          <span className="text-body-md truncate">{r.title}</span>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  linkQuery.trim().length >= 2 && <p className="text-label-md text-on-surface-variant">Nenhum resultado.</p>
+                )}
+              </div>
+            )}
+          </div>
+</div>
+      </div>
+      </div>
+
+      {commentFlowOpen && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-fade-in" onClick={() => !sending && setCommentFlowOpen(false)}>
+          <div className="relative w-full max-w-md bg-surface-container-lowest rounded-2xl shadow-2xl overflow-hidden animate-scale-in" onClick={(e) => e.stopPropagation()}>
+            <div className="h-1.5 bg-gradient-to-r from-primary via-primary-container to-tertiary" />
+
+            {commentFlow.step === 'chooseResponsible' ? (
+              <>
+                <div className="p-lg pt-xl text-center">
+                  <div className="mx-auto w-14 h-14 rounded-full flex items-center justify-center mb-md text-primary bg-primary/10">
+                    <span className="material-symbols-outlined text-[28px]">support_agent</span>
+                  </div>
+                  <h3 className="font-title-lg text-title-lg text-on-surface mb-sm">Escolher responsável</h3>
+                  <p className="text-body-md text-on-surface-variant leading-relaxed">
+                    O chamado <strong className="text-on-surface">#{ticket.number}</strong> ainda não possui responsável. Selecione o responsável para poder gravar o comentário.
+                  </p>
+                </div>
+                <div className="px-lg">
+                  <label className="text-label-md font-semibold text-on-surface-variant block mb-2">Responsável</label>
+                  <select
+                    className={`${inputClass} !rounded-xl`}
+                    value={commentFlow.responsible_id}
+                    onChange={(e) => setCommentFlow((p) => ({ ...p, responsible_id: e.target.value }))}
+                  >
+                    <option value="">Selecione…</option>
+                    {users
+                      .filter((u) => (u.sectors || []).some((s) => s.id === ticket.responsible_sector_id))
+                      .map((u) => (
+                        <option key={u.id} value={u.id}>{u.name}</option>
+                      ))}
+                  </select>
+                </div>
+                <div className="flex gap-sm p-lg bg-surface-container-low/60 mt-lg">
+                  <button
+                    type="button"
+                    onClick={() => setCommentFlowOpen(false)}
+                    className="flex-1 px-md py-sm rounded-lg border border-outline-variant text-on-surface-variant font-label-md hover:bg-surface-container-low transition-all"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="button"
+                    disabled={!commentFlow.responsible_id || sending}
+                    onClick={continueToSituation}
+                    className="flex-1 px-md py-sm rounded-lg bg-primary text-on-primary font-label-md shadow-md shadow-primary/20 hover:bg-surface-tint transition-all disabled:opacity-50"
+                  >
+                    {sending ? 'Gravando…' : 'Continuar'}
+                  </button>
+                </div>
+              </>
+            ) : commentFlow.step === 'choose' ? (
+              <>
+                <div className="p-lg pt-xl text-center">
+                  <div className="mx-auto w-14 h-14 rounded-full flex items-center justify-center mb-md text-primary bg-primary/10">
+                    <span className="material-symbols-outlined text-[28px]">swap_horiz</span>
+                  </div>
+                  <h3 className="font-title-lg text-title-lg text-on-surface mb-sm">Deseja alterar a situação?</h3>
+                  <p className="text-body-md text-on-surface-variant leading-relaxed">
+                    Escolha a nova situação para salvar junto com o comentário, ou apenas grave o comentário sem alterar a situação do chamado <strong className="text-on-surface">#{ticket.number}</strong>.
+                  </p>
+                </div>
+                <div className="px-lg max-h-64 overflow-y-auto custom-scrollbar space-y-2">
+                  {available.map((s) => (
+                    <button
+                      key={s.id}
+                      type="button"
+                      onClick={() => setCommentFlow({ step: 'confirm', target: s })}
+                      className="w-full flex items-center gap-3 rounded-xl px-md py-sm font-label-md font-semibold transition-all"
+                      style={{ backgroundColor: s.color ? `${s.color}14` : '#e0e0e0', color: s.color || '#3d4146' }}
+                    >
+                      <span className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: s.color || '#868c92' }}></span>
+                      {s.name}
+                      <span className="material-symbols-outlined text-[16px] ml-auto">chevron_right</span>
+                    </button>
+                  ))}
+                  <button
+                    type="button"
+                    onClick={() => setCommentFlow({ step: 'confirm', target: null })}
+                    className="w-full flex items-center gap-3 rounded-xl px-md py-sm font-label-md font-semibold border transition-all"
+                    style={{ borderColor: 'rgba(0,0,0,0)', backgroundColor: '#f1f3f5', color: '#3d4146' }}
+                  >
+                    <span className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: '#868c92' }}></span>
+                    Somente comentar
+                    <span className="material-symbols-outlined text-[16px] ml-auto">chevron_right</span>
+                  </button>
+                </div>
+                <div className="flex gap-sm p-lg bg-surface-container-low/60 mt-lg">
+                  <button
+                    type="button"
+                    onClick={() => setCommentFlowOpen(false)}
+                    className="flex-1 px-md py-sm rounded-lg border border-outline-variant text-on-surface-variant font-label-md hover:bg-surface-container-low transition-all"
+                  >
+                    Cancelar
+                  </button>
+                </div>
+              </>
             ) : (
-              <ul className="space-y-4 relative">
-                <div className="absolute left-[13px] top-2 bottom-2 w-px bg-black/10"></div>
-                {history.map((h) => {
-                  const meta = historyMeta(h.action)
-                  return (
-                    <li key={h.id} className="relative flex gap-3 animate-fade-in">
-                      <div
-                        className="w-7 h-7 rounded-full flex items-center justify-center shrink-0 z-10"
-                        style={{ backgroundColor: `${meta.color}18`, color: meta.color, boxShadow: `0 0 0 3px #fff` }}
-                      >
-                        <span className="material-symbols-outlined text-[16px]">{meta.icon}</span>
+              <>
+                <div className="p-lg pt-xl text-center">
+                  <div className="mx-auto w-14 h-14 rounded-full flex items-center justify-center mb-md text-primary bg-primary/10">
+                    <span className="material-symbols-outlined text-[28px]">fact_check</span>
+                  </div>
+                  <h3 className="font-title-lg text-title-lg text-on-surface mb-sm">Confirmar gravação</h3>
+                  {commentFlow.responsible_id && (
+                    <div className="mb-md inline-flex items-center gap-2 rounded-full px-lg py-sm bg-primary/10 text-primary font-label-md font-semibold">
+                      <span className="material-symbols-outlined text-[16px] shrink-0">support_agent</span>
+                      Responsável: {users.find((u) => String(u.id) === String(commentFlow.responsible_id))?.name}
+                    </div>
+                  )}
+                  {commentFlow.target ? (
+                    <>
+                      <div className="flex items-center justify-center gap-sm">
+                        <SituationChip label={ticket.situation?.name || '—'} color={ticket.situation?.color} />
+                        <span className="material-symbols-outlined text-primary text-[28px] shrink-0">arrow_forward</span>
+                        <SituationChip label={commentFlow.target.name} color={commentFlow.target.color} />
                       </div>
-                      <div className="min-w-0">
-                        <p className="font-body-md font-semibold text-on-surface leading-snug">{meta.label}</p>
-                        <p className="text-label-md text-on-surface-variant">{formatDate(h.created_at)}</p>
-                        <p className="text-label-md text-on-surface mt-1 leading-relaxed whitespace-pre-wrap line-clamp-2">{h.summary}</p>
-                      </div>
-                    </li>
-                  )
-                })}
-              </ul>
+                      <p className="text-body-md text-on-surface-variant mt-sm leading-relaxed">
+                        O comentário será gravado e a situação do chamado será alterada para <strong className="text-on-surface">{commentFlow.target.name}</strong>.
+                      </p>
+                    </>
+                  ) : (
+                    <p className="text-body-md text-on-surface-variant leading-relaxed">
+                      Somente o comentário será gravado. A situação permanecerá <strong className="text-on-surface">{ticket.situation?.name || '—'}</strong>.
+                    </p>
+                  )}
+                </div>
+                <div className="flex gap-sm p-lg bg-surface-container-low/60 mt-lg">
+                  <button
+                    type="button"
+                    onClick={() => setCommentFlow({ step: 'choose', target: null })}
+                    disabled={sending}
+                    className="flex-1 px-md py-sm rounded-lg border border-outline-variant text-on-surface-variant font-label-md hover:bg-surface-container-low transition-all"
+                  >
+                    Voltar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => saveComment(commentFlow.target, commentFlow.responsible_id)}
+                    disabled={sending}
+                    className="flex-1 px-md py-sm rounded-lg bg-primary text-on-primary font-label-md shadow-md shadow-primary/20 hover:bg-surface-tint transition-all"
+                  >
+                    {sending ? 'Gravando…' : 'Confirmar'}
+                  </button>
+                </div>
+              </>
             )}
           </div>
         </div>
-      </div>
+      )}
     </PageShell>
   )
+}
+
+function formatSize(bytes) {
+  if (bytes >= 1024 * 1024) return `${(bytes / 1024 / 1024).toFixed(2)} MB`
+  return `${Math.max(1, Math.round(bytes / 1024))} KB`
 }
 
 function Avatar({ name, size = 'w-9 h-9 rounded-full' }) {
@@ -614,11 +1101,33 @@ const ACTION_META = {
   comment: { icon: 'chat_bubble', label: 'Novo apontamento', color: '#0891b2' },
   attach: { icon: 'attach_file', label: 'Anexo adicionado', color: '#f59e0b' },
   unlink: { icon: 'link_off', label: 'Anexo removido', color: '#dc2626' },
+  link: { icon: 'link', label: 'Vínculo adicionado', color: '#0891b2' },
+  link_remove: { icon: 'link_off', label: 'Vínculo removido', color: '#64748b' },
   delete: { icon: 'delete', label: 'Chamado excluído', color: '#dc2626' },
 }
 
 function historyMeta(action) {
   return ACTION_META[action] || { icon: 'receipt_long', label: 'Registro', color: '#64748b' }
+}
+
+function historyChanges(h) {
+  if (h.action !== 'update' || !h.before || !h.after) return null
+
+  const fields = [
+    { label: 'Classificação', key: 'classification_name' },
+    { label: 'Título', key: 'title' },
+    { label: 'Descrição', key: 'description' },
+    { label: 'Responsável', key: 'responsible_user_name' },
+    { label: 'Situação', key: 'situation_name' },
+  ]
+
+  return fields
+    .filter(({ key }) => String(h.before[key] ?? '') !== String(h.after[key] ?? ''))
+    .map(({ label, key }) => ({
+      label,
+      old: h.before[key] || '—',
+      new: h.after[key] || '—',
+    }))
 }
 
 function SituationChip({ label, color }) {

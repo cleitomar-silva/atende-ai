@@ -66,4 +66,14 @@ class Ticket extends Model
     {
         return $this->hasMany(TicketAttachment::class);
     }
+
+    public function links(): HasMany
+    {
+        return $this->hasMany(TicketLink::class, 'ticket_id');
+    }
+
+    public function linksReceived(): HasMany
+    {
+        return $this->hasMany(TicketLink::class, 'linked_ticket_id');
+    }
 }

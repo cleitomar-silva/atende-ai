@@ -252,7 +252,7 @@ Permite o gerenciamento completo dos chamados.
 - **Descrição**
 - **Anexos**
 
-### Tela de edição
+### a visualizacao ela de edição
 - Editar apenas os campos: **Classificação**, **Título**, **Descrição** e **Anexos**.
 
 ### Tela de pesquisa
@@ -268,7 +268,7 @@ Permite o gerenciamento completo dos chamados.
 - **Número do chamado:** ao cadastrar, o sistema deve gerar um número que não se repita para outro chamados da mesma empresa. Cada empresa tem sua própria sequência.
 - **Setor solicitante:** o usuário deve selecionar o Setor Solicitante na abertura do chamado **somente se estiver vinculado a mais de um setor**. Caso esteja em apenas um setor, o campo não deve ser exibido; o sistema deve identificar automaticamente o único setor vinculado ao usuário e gravá-lo junto com o chamado.
 - **Usuário solicitante:** deve ser identificado e registrado automaticamente no banco no momento da gravação do chamado.
-- **Anexos:** é permitido inserir vários anexos, desde que o total de todos os arquivos não ultrapasse **50 MB**.
+- **Anexos:** é permitido inserir vários anexos, desde que o total de todos os arquivos não ultrapasse **15 MB**.
 - **Transições conforme definidas na Tela de Situação:** por exemplo, o demandado altera determinadas situações e o solicitante pode alterar outras (ex.: situação "Aguardando validação" concluída/recusada pelo solicitante; "Não iniciado" só pode ir para "Em atendimento" ou "Concluído" pelo responsável).
 
 ---

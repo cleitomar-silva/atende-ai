@@ -7,6 +7,8 @@ RUN apk add --no-cache \
     unzip \
     && docker-php-ext-install pdo_pgsql pgsql
 
+RUN printf 'upload_max_filesize=20M\npost_max_size=32M\nmax_file_uploads=50\n' > /usr/local/etc/php/conf.d/uploads.ini
+
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
 WORKDIR /var/www/html

@@ -81,6 +81,8 @@ Route::middleware(['api.auth'])->group(function () {
     Route::delete('/tickets/{id}', [TicketController::class, 'destroy']);
     Route::post('/tickets/{id}/comments', [TicketController::class, 'addComment']);
     Route::post('/tickets/{id}/situation', [TicketController::class, 'changeSituation']);
+    Route::post('/tickets/{id}/links', [TicketController::class, 'linkTicket']);
+    Route::delete('/tickets/{id}/links/{linkedId}', [TicketController::class, 'destroyLink']);
     Route::get('/tickets/{id}/attachments/{attachmentId}/download', [TicketController::class, 'downloadAttachment']);
     Route::delete('/tickets/{id}/attachments/{attachmentId}', [TicketController::class, 'destroyAttachment']);
 

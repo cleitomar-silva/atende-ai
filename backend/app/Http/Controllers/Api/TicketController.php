@@ -11,6 +11,7 @@ use App\Models\SituationTransition;
 use App\Models\Ticket;
 use App\Models\TicketAttachment;
 use App\Models\TicketComment;
+use App\Models\TicketLink;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -19,7 +20,7 @@ use Illuminate\Validation\ValidationException;
 
 class TicketController extends Controller
 {
-    private const MAX_ATTACHMENTS_BYTES = 52428800; // 50 MB
+    private const MAX_ATTACHMENTS_BYTES = 15728640; // 15 MB por comentário/upload
 
     public function index(Request $request)
     {
@@ -108,7 +109,7 @@ class TicketController extends Controller
             'classification.group', 'classification.category', 'classification.sectors',
             'responsibleSector', 'responsibleUser.sectors', 'requestingSector',
             'requestingUser.sectors', 'situation',
-            'comments.user', 'attachments.user',
+            'comments.user', 'comments.attachments', 'attachments.user',
         ]);
 
         $allowedIds = $this->allowedTransitionIds($ticket, $user);
@@ -133,11 +134,75 @@ class TicketController extends Controller
                 'created_at' => $a->created_at,
             ]);
 
+        $linkedTickets = $this->linkedTickets($request, $ticket);
+
         return response()->json([
             'ticket' => $ticket,
             'available_situations' => $available,
             'history' => $history,
+            'linked_tickets' => $linkedTickets,
         ]);
+    }
+
+    public function linkTicket(Request $request, int $id)
+    {
+        $user = $request->user();
+        $ticket = $this->ticket($request, $id);
+
+        $request->validate([
+            'linked_ticket_id' => 'required|integer',
+        ]);
+
+        $targetId = (int) $request->linked_ticket_id;
+
+        if ($targetId === $ticket->id) {
+            return response()->json(['message' => 'Não é possível vincular um chamado a si mesmo.'], 422);
+        }
+
+        $target = Ticket::where('company_id', $user->company_id)->find($targetId);
+
+        if (! $target) {
+            return response()->json(['message' => 'Chamado não encontrado.'], 422);
+        }
+
+        $already = TicketLink::where(function ($q) use ($ticket, $targetId) {
+            $q->where('ticket_id', $ticket->id)->where('linked_ticket_id', $targetId)
+              ->orWhere('ticket_id', $targetId)->where('linked_ticket_id', $ticket->id);
+        })->first();
+
+        if (! $already) {
+            TicketLink::create([
+                'ticket_id' => $ticket->id,
+                'linked_ticket_id' => $targetId,
+                'user_id' => $user->id,
+            ]);
+
+            Auditor::record('Ticket', 'link', $ticket->id, "Chamado #{$ticket->number} vinculado ao chamado #{$target->number}.", null, ['linked_ticket_id' => $targetId]);
+        }
+
+        return response()->json(['linked_tickets' => $this->linkedTickets($request, $ticket)]);
+    }
+
+    public function destroyLink(Request $request, int $id, int $linkedId)
+    {
+        $ticket = $this->ticket($request, $id);
+
+        $link = TicketLink::where(function ($q) use ($ticket, $linkedId) {
+            $q->where('ticket_id', $ticket->id)->where('linked_ticket_id', $linkedId)
+              ->orWhere('ticket_id', $linkedId)->where('linked_ticket_id', $ticket->id);
+        })->first();
+
+        if (! $link) {
+            return response()->json(['message' => 'Vínculo não encontrado.'], 404);
+        }
+
+        $linked = Ticket::find($link->ticket_id === $ticket->id ? $link->linked_ticket_id : $link->ticket_id);
+
+        $link->delete();
+
+        Auditor::record('Ticket', 'link_remove', $ticket->id, "Vínculo com o chamado #{$linked?->number} removido.", null);
+
+        return response()->json(['linked_tickets' => $this->linkedTickets($request, $ticket)]);
     }
 
     public function store(Request $request)
@@ -182,7 +247,16 @@ class TicketController extends Controller
         }
 
         return DB::transaction(function () use ($request, $user, $classification, $requestingSectorId, $situacaoInicial) {
-            $nextNumber = DB::table('tickets')->where('company_id', $user->company_id)->max('number') + 1;
+            $now = now();
+            $prefix = (int) $now->format('Ym') * 10000;
+            $lastOfMonth = DB::table('tickets')
+                ->where('company_id', $user->company_id)
+                ->whereBetween('created_at', [$now->copy()->startOfMonth(), $now->copy()->endOfMonth()])
+                ->max('number');
+
+            $nextNumber = ($lastOfMonth !== null && $lastOfMonth >= $prefix && $lastOfMonth < $prefix + 10000)
+                ? $lastOfMonth + 1
+                : $prefix + 1;
 
             $ticket = Ticket::create([
                 'company_id' => $user->company_id,
@@ -249,6 +323,9 @@ class TicketController extends Controller
 
         if (! $request->boolean('keep_existing_attachments')) {
             foreach ($ticket->attachments as $att) {
+                if ($att->ticket_comment_id) {
+                    continue;
+                }
                 Storage::disk('public')->delete($att->path);
                 $att->delete();
             }
@@ -296,22 +373,24 @@ class TicketController extends Controller
         $ticket = $this->ticket($request, $id);
 
         $request->validate([
-            'content' => 'required|string',
+            'content' => 'nullable|string',
             'is_internal' => 'boolean',
         ]);
 
         $comment = TicketComment::create([
             'ticket_id' => $ticket->id,
             'user_id' => $user->id,
-            'content' => $request->content,
+            'content' => $request->input('content', ''),
             'is_internal' => $request->boolean('is_internal', false),
         ]);
 
+        $this->attachUploads($ticket, $user, $request, $comment);
+
         Auditor::record('Ticket', 'comment', $ticket->id, "Comentário em chamado #{$ticket->number}.", null, ['comment_id' => $comment->id]);
 
-        $this->notifyRequester($ticket, "Novo comentário no chamado #{$ticket->number}: \"".mb_substr($request->content, 0, 80).'..."');
+        $this->notifyRequester($ticket, $this->commentNotificationText($ticket, $request));
 
-        return response()->json(['comment' => $comment->load('user')], 201);
+        return response()->json(['comment' => $comment->load('user', 'attachments')], 201);
     }
 
     public function changeSituation(Request $request, int $id)
@@ -400,6 +479,19 @@ class TicketController extends Controller
         return Ticket::where('company_id', $request->user()->company_id)->findOrFail($id);
     }
 
+    private function linkedTickets(Request $request, Ticket $ticket): \Illuminate\Support\Collection
+    {
+        return Ticket::where('company_id', $request->user()->company_id)
+            ->where(function ($q) use ($ticket) {
+                $q->whereHas('links', fn ($l) => $l->where('linked_ticket_id', $ticket->id))
+                  ->orWhereHas('linksReceived', fn ($l) => $l->where('ticket_id', $ticket->id));
+            })
+            ->where('id', '!=', $ticket->id)
+            ->with('situation', 'classification')
+            ->orderBy('number')
+            ->get();
+    }
+
     private function allowedTransitionIds(Ticket $ticket, User $user): array
     {
         $isRequester = $ticket->requesting_user_id === $user->id;
@@ -443,7 +535,7 @@ class TicketController extends Controller
         return $request->responsible_sector_id;
     }
 
-    private function attachUploads(Ticket $ticket, User $user, Request $request): void
+    private function attachUploads(Ticket $ticket, User $user, Request $request, ?TicketComment $comment = null): void
     {
         if (! $request->hasFile('attachments')) {
             return;
@@ -455,20 +547,29 @@ class TicketController extends Controller
             $files = [$files];
         }
 
-        $existingTotal = $ticket->attachments()->sum('size');
+        $existingTotal = $comment
+            ? $comment->attachments()->sum('size')
+            : $ticket->attachments()->whereNull('ticket_comment_id')->sum('size');
         $incomingTotal = array_sum(array_map(fn ($f) => $f->getSize(), $files));
 
         if ($existingTotal + $incomingTotal > self::MAX_ATTACHMENTS_BYTES) {
             throw ValidationException::withMessages([
-                'attachments' => ['O total de anexos não pode ultrapassar 50 MB.'],
+                'attachments' => ['O total de anexos não pode ultrapassar 15 MB.'],
             ]);
         }
 
         foreach ($files as $file) {
+            if (! $file->isValid()) {
+                throw ValidationException::withMessages([
+                    'attachments' => ['O arquivo "'.$file->getClientOriginalName().'" não pôde ser recebido. Verifique o tamanho ou o formato do arquivo.'],
+                ]);
+            }
+
             $path = $file->store('tickets/'.$ticket->id, 'public');
             $att = TicketAttachment::create([
                 'ticket_id' => $ticket->id,
                 'user_id' => $user->id,
+                'ticket_comment_id' => $comment?->id,
                 'original_name' => $file->getClientOriginalName(),
                 'path' => $path,
                 'mime' => $file->getMimeType(),
@@ -523,5 +624,25 @@ class TicketController extends Controller
         if ($requester) {
             $requester->notify(new \App\Notifications\TicketNotification($message, $ticket->id, $ticket->number));
         }
+    }
+
+    private function commentNotificationText(Ticket $ticket, Request $request): string
+    {
+        $content = trim((string) $request->input('content'));
+        $files = $request->file('attachments');
+        if (! is_array($files)) {
+            $files = $files ? [$files] : [];
+        }
+        $attachCount = count(array_filter($files));
+
+        $text = $content !== ''
+            ? 'Novo comentário no chamado #'.$ticket->number.': "'.mb_substr($content, 0, 80).'..."'
+            : 'Novo comentário no chamado #'.$ticket->number.'.';
+
+        if ($attachCount > 0) {
+            $text .= ' ('.$attachCount.' anexo'.($attachCount > 1 ? 's' : '').')';
+        }
+
+        return $text;
     }
 }
