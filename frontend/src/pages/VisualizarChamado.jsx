@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import PageShell from '../components/dashboard/PageShell.jsx'
 import { Spinner, inputClass } from '../components/dashboard/ui.jsx'
 import { useAuth } from '../context/AuthContext'
-import { api, formatDate } from '../services/api'
+import { api, formatDate, formatNumber } from '../services/api'
 import { useToast } from '../components/ToastProvider.jsx'
 import { useConfirm } from '../components/ConfirmProvider.jsx'
 
@@ -28,6 +28,7 @@ export default function VisualizarChamado() {
   const [sending, setSending] = useState(false)
   const [error, setError] = useState('')
   const [editing, setEditing] = useState(false)
+  const [menuOpen, setMenuOpen] = useState(false)
   const [historyOpen, setHistoryOpen] = useState(false)
   const [linkedTickets, setLinkedTickets] = useState([])
   const [linkOpen, setLinkOpen] = useState(false)
@@ -35,12 +36,14 @@ export default function VisualizarChamado() {
   const [linkResults, setLinkResults] = useState([])
   const [linkSearching, setLinkSearching] = useState(false)
   const [editForm, setEditForm] = useState({ classification_id: '', title: '', description: '', responsible_user_id: '' })
+  const [slaInfo, setSlaInfo] = useState(null)
 
   const applyTicketData = useCallback((d) => {
     setTicket(d.ticket)
     setAvailable(d.available_situations || [])
     setHistory(d.history || [])
     setLinkedTickets(d.linked_tickets || [])
+    setSlaInfo(d.sla || null)
     setEditForm({
       classification_id: String(d.ticket.classification_id),
       title: d.ticket.title,
@@ -90,6 +93,17 @@ export default function VisualizarChamado() {
   const canSendComment = isRequester || isResponsible || isAdmin
   const canEdit = isResponsible || isAdmin
   const nonCommentAttachments = (ticket.attachments || []).filter((a) => !a.ticket_comment_id)
+
+  const slaMinutes = ticket.classification?.sla_minutes || null
+  const slaLimitMinutes = slaInfo?.limit_minutes ?? slaMinutes
+  const slaUsedMinutes = slaInfo?.used_minutes ?? null
+  const slaWithin = slaInfo?.delivered ?? (slaMinutes != null && slaUsedMinutes != null ? slaUsedMinutes <= slaMinutes : null)
+  const slaValue =
+    slaUsedMinutes != null && slaLimitMinutes != null
+      ? `${formatNumber(slaUsedMinutes)} / ${formatNumber(slaLimitMinutes)}`
+      : slaLimitMinutes != null
+        ? formatNumber(slaLimitMinutes)
+        : null
 
   const maxAttachmentBytes = 15 * 1024 * 1024
   const commentTotalBytes = commentFiles.reduce((sum, f) => sum + (f.size || 0), 0)
@@ -191,6 +205,15 @@ export default function VisualizarChamado() {
 
   const changeSituation = async (situationId) => {
     if (!situationId) return
+    if (isRequester) {
+      if (available.length === 0) {
+        toast.info('Ainda não há situações disponíveis para alteração. Aguarde as próximas situações do chamado.')
+        return
+      }
+    } else if (!ticket.responsible_user_id) {
+      toast.error('O chamado precisa ter um demandado. Escolha um demandado antes de alterar a situação.')
+      return
+    }
     const target = available.find((s) => String(s.id) === String(situationId))
     if (!target) return
     const current = ticket.situation
@@ -215,9 +238,13 @@ export default function VisualizarChamado() {
     if (!ok) return
     setError('')
     try {
-      await api(`/tickets/${id}/situation`, { method: 'POST', body: { situation_id: Number(situationId) } })
+      const data = await api(`/tickets/${id}/situation`, { method: 'POST', body: { situation_id: Number(situationId) } })
       load()
-      toast.success(`Situação alterada para "${target?.name}".`)
+      if (data?.sla?.message) {
+        toast.info(`Situação alterada para "${target?.name}". ${data.sla.message}`, 8000)
+      } else {
+        toast.success(`Situação alterada para "${target?.name}".`)
+      }
     } catch (err) {
       toast.error(err.message)
     }
@@ -350,11 +377,11 @@ export default function VisualizarChamado() {
               Chamado · #{ticket.number}
             </span>
           </div>
-          <h1 className="font-display-lg text-display-lg text-on-surface leading-[1.15] tracking-tight">{ticket.title}</h1>
+          <h1 className="font-display-lg text-[30px] font-bold text-on-surface leading-[1.15] tracking-tight">{ticket.title}</h1>
           <div className="flex items-center gap-x-lg gap-y-sm flex-wrap font-body-md text-on-surface-variant">
-            <span className="inline-flex items-center gap-2">
-              <Avatar name={ticket.requesting_user?.name || 'U'} size="w-7 h-7 rounded-lg text-xs" />
-              {ticket.requesting_user?.name}
+            <span className="inline-flex items-center gap-1.5">
+              <span className="material-symbols-outlined text-[18px]">category</span>
+              {ticket.classification?.category?.name || '—'}
             </span>
             <span className="inline-flex items-center gap-1.5">
               <span className="material-symbols-outlined text-[18px]">calendar_today</span>
@@ -365,20 +392,6 @@ export default function VisualizarChamado() {
               SLA {ticket.classification?.sla_minutes ? `${ticket.classification.sla_minutes} min` : '—'}
             </span>
           </div>
-        </div>
-
-        <div className="flex items-center gap-sm shrink-0">
-          <StatusChip label={ticket.situation?.name} color={ticket.situation?.color} />
-          {canEdit && (
-            <button
-              type="button"
-              onClick={() => setEditing((v) => !v)}
-              className="inline-flex items-center gap-2 rounded-full px-lg py-sm text-label-md font-semibold text-on-surface-variant bg-white ring-1 ring-black/5 shadow-sm hover:text-primary hover:shadow-md transition-all"
-            >
-              <span className="material-symbols-outlined text-lg">{editing ? 'close' : 'edit'}</span>
-              {editing ? 'Cancelar' : 'Editar'}
-            </button>
-          )}
         </div>
       </header>
 
@@ -396,6 +409,42 @@ export default function VisualizarChamado() {
         <div className="pointer-events-none absolute -top-28 -right-24 h-80 w-80 rounded-full bg-gradient-to-br from-primary/15 via-primary/5 to-transparent blur-2xl"></div>
         <div className="pointer-events-none absolute -bottom-32 left-1/4 h-72 w-72 rounded-full bg-gradient-to-tr from-secondary-container/50 to-transparent blur-3xl"></div>
         <div className="relative p-lg sm:p-xl space-y-xl">
+          <div className="flex items-start justify-between gap-md">
+            <div>
+              <p className="text-label-md font-bold uppercase tracking-[0.18em] text-primary">Visão geral</p>
+              <p className="text-body-md text-on-surface-variant mt-0.5">Principais informações do chamado</p>
+            </div>
+            {canEdit && (
+              <div className="relative shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setMenuOpen((v) => !v)}
+                  className="inline-flex items-center justify-center w-9 h-9 rounded-full text-on-surface-variant bg-white ring-1 ring-black/5 shadow-sm hover:text-primary hover:shadow-md transition-all"
+                >
+                  <span className="material-symbols-outlined text-lg">more_vert</span>
+                </button>
+                {menuOpen && (
+                  <>
+                    <div className="fixed inset-0 z-40" onClick={() => setMenuOpen(false)} />
+                    <div className="absolute right-0 top-full mt-1 z-50 min-w-[150px] rounded-xl bg-white shadow-lg ring-1 ring-black/5 overflow-hidden animate-scale-in">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setMenuOpen(false)
+                          setEditing(true)
+                        }}
+                        className="w-full flex items-center gap-2 px-md py-sm text-label-md font-semibold text-on-surface-variant hover:bg-black/5 hover:text-primary transition-colors"
+                      >
+                        <span className="material-symbols-outlined text-[18px]">edit</span>
+                        Editar
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
+          </div>
+
           {editing ? (
             <form onSubmit={saveEdit} className="grid grid-cols-1 md:grid-cols-2 gap-md">
               <div className="space-y-base">
@@ -407,7 +456,7 @@ export default function VisualizarChamado() {
                 </select>
               </div>
               <div className="space-y-base">
-                <label className="font-label-md text-on-surface-variant">Responsável</label>
+                <label className="font-label-md text-on-surface-variant">Demandado</label>
                 <select
                   className={inputClass}
                   value={editForm.responsible_user_id}
@@ -429,7 +478,15 @@ export default function VisualizarChamado() {
                 <label className="font-label-md text-on-surface-variant">Descrição</label>
                 <textarea className={inputClass} rows={5} value={editForm.description} onChange={(e) => setEditForm((p) => ({ ...p, description: e.target.value }))}></textarea>
               </div>
-              <div className="md:col-span-2 flex justify-end">
+              <div className="md:col-span-2 flex justify-end gap-sm">
+                <button
+                  type="button"
+                  onClick={() => setEditing(false)}
+                  disabled={sending}
+                  className="px-lg py-sm rounded-full text-on-surface-variant bg-black/5 hover:bg-black/10 font-label-md font-semibold disabled:opacity-60 transition-all"
+                >
+                  Cancelar
+                </button>
                 <button type="submit" disabled={sending} className="px-lg py-sm rounded-full bg-primary text-on-primary font-label-md font-semibold shadow-lg shadow-primary/25 hover:opacity-90 disabled:opacity-60 transition-all">
                   {sending ? 'Gravando…' : 'Gravar alterações'}
                 </button>
@@ -438,23 +495,11 @@ export default function VisualizarChamado() {
           ) : (
             <>
               {/* Métricas */}
-              <div>
-                  <p className="text-label-md font-bold uppercase tracking-[0.18em] text-primary">Visão geral</p>
-                  <p className="text-body-md text-on-surface-variant mt-0.5">Principais informações do chamado</p>
-                </div>
-
-              <div className="grid grid-cols-2 gap-md lg:grid-cols-4">
-                <Stat icon="category" tint="bg-primary/10 text-primary" label="Classificação" value={ticket.classification?.name} />
-                <Stat icon="apartment" tint="bg-cyan-500/10 text-cyan-600" label="Setor solicitante" value={ticket.requesting_sector?.name} />
-                <Stat icon="support_agent" tint="bg-indigo-500/10 text-indigo-600" label="Setor demandado" value={ticket.responsible_sector?.name} />
-                <Stat icon="timer" tint="bg-amber-500/10 text-amber-700" label="SLA" value={ticket.classification?.sla_minutes ? `${ticket.classification.sla_minutes} min` : null} />
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-x-lg gap-y-md">
-                <Info label="Categoria" value={ticket.classification?.category?.name} />
-                <Info label="Grupo" value={ticket.classification?.group?.name} />
-                <Info label="Usuário solicitante" value={ticket.requesting_user?.name} />
-                <Info label="Responsável" value={ticket.responsible_user?.name || 'Não atribuído'} />
+              <div className="grid grid-cols-2 gap-md">
+                <Stat icon="category" tint="bg-primary/10 text-primary" label="Classificação" value={ticket.classification?.group?.name ? `${ticket.classification.group.name} - ${ticket.classification.name}` : ticket.classification?.name} />
+                <Stat icon="timer" tint={slaWithin === false ? 'bg-red-500/10 text-red-600' : slaWithin === true ? 'bg-emerald-500/10 text-emerald-600' : 'bg-amber-500/10 text-amber-700'} label="SLA" value={slaValue || '—'} subvalue={slaWithin === false ? 'SLA excedido' : slaWithin === true ? 'Dentro do SLA' : null} />
+                <Stat icon="apartment" tint="bg-cyan-500/10 text-cyan-600" label="Solicitante" value={ticket.requesting_sector?.name} subvalue={ticket.requesting_user?.name} />
+                <Stat icon="support_agent" tint="bg-indigo-500/10 text-indigo-600" label="Demandado" value={ticket.responsible_sector?.name} subvalue={ticket.responsible_user?.name || 'Não atribuído'} />
               </div>
 
               <div className="space-y-md">
@@ -482,8 +527,8 @@ export default function VisualizarChamado() {
                         key={att.id}
                         className="group flex items-center gap-md rounded-2xl bg-white p-2 shadow-sm ring-1 ring-black/5 hover:shadow-md hover:ring-primary/30 transition-all"
                       >
-                        <div className="w-10 h-10 rounded-xl flex items-center justify-center text-primary bg-primary/10 shrink-0">
-                          <span className="material-symbols-outlined text-[22px]">description</span>
+                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${fileTypeInfo(att).bg}`}>
+                          <span className="material-symbols-outlined text-[22px]" style={{ color: fileTypeInfo(att).color }}>{fileTypeInfo(att).icon}</span>
                         </div>
                         <button onClick={() => downloadAttachment(att)} className="min-w-0 text-left">
                           <span className="block font-body-md font-semibold text-on-surface group-hover:text-primary transition-colors truncate max-w-[220px]">
@@ -542,28 +587,30 @@ export default function VisualizarChamado() {
                       <span className="text-[11px] text-on-surface-variant">
                         <span className="font-semibold text-on-surface">{c.user?.name || 'Sistema'}</span> · {formatDate(c.created_at)}
                       </span>
-                      <span className="inline-flex items-center gap-2 rounded-full px-lg py-sm bg-amber-100/80 text-amber-800 text-label-md font-medium max-w-full">
-                        <span className="material-symbols-outlined text-[16px] shrink-0">sticky_note_2</span>
-                        <span className="whitespace-pre-wrap"><strong>Nota Interna:</strong> {c.content}</span>
-                      </span>
-                      {c.attachments?.length > 0 && (
-                        <div className="flex flex-wrap gap-sm justify-center">
-                          {c.attachments.map((att) => (
-                            <button
-                              key={att.id}
-                              onClick={() => downloadAttachment(att)}
-                              title={`Baixar ${att.original_name}`}
-                              className="flex items-center gap-2 rounded-lg bg-gray-100 px-2.5 py-2 text-left max-w-[240px] min-w-0 hover:bg-gray-200 transition-all"
-                            >
-                              <span className="material-symbols-outlined text-[22px] text-primary shrink-0">description</span>
-                              <span className="min-w-0">
-                                <span className="block text-label-md font-semibold text-black truncate">{att.original_name}</span>
-                                <span className="block text-[11px] text-gray-500">{formatSize(att.size)}</span>
-                              </span>
-                            </button>
-                          ))}
+                      <div className="max-w-full rounded-2xl border border-amber-200/70 bg-amber-100/80 px-lg py-sm text-amber-800">
+                        <div className="flex items-start gap-2 text-label-md font-medium">
+                          <span className="material-symbols-outlined text-[16px] shrink-0 mt-0.5">sticky_note_2</span>
+                          <span className="whitespace-pre-wrap"><strong>Nota Interna:</strong> {c.content}</span>
                         </div>
-                      )}
+                        {c.attachments?.length > 0 && (
+                          <div className="flex flex-wrap gap-sm mt-2">
+                            {c.attachments.map((att) => (
+                              <button
+                                key={att.id}
+                                onClick={() => downloadAttachment(att)}
+                                title={`Baixar ${att.original_name}`}
+                                className="flex items-center gap-2 rounded-lg bg-white/80 px-2.5 py-2 text-left max-w-[240px] min-w-0 hover:bg-white transition-all"
+                              >
+                                <span className="material-symbols-outlined text-[22px] shrink-0" style={{ color: fileTypeInfo(att).color }}>{fileTypeInfo(att).icon}</span>
+                                <span className="min-w-0">
+                                  <span className="block text-label-md font-semibold text-black truncate">{att.original_name}</span>
+                                  <span className="block text-[11px] text-gray-500">{formatSize(att.size)}</span>
+                                </span>
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
                     </div>
                   )
                 }
@@ -594,7 +641,7 @@ export default function VisualizarChamado() {
                               title={`Baixar ${att.original_name}`}
                               className="flex items-center gap-2 rounded-lg bg-gray-100 px-2.5 py-2 text-left max-w-[240px] min-w-0 hover:bg-gray-200 transition-all"
                             >
-                              <span className="material-symbols-outlined text-[22px] text-primary shrink-0">description</span>
+                              <span className="material-symbols-outlined text-[22px] shrink-0" style={{ color: fileTypeInfo(att).color }}>{fileTypeInfo(att).icon}</span>
                               <span className="min-w-0">
                                 <span className="block text-label-md font-semibold text-black truncate">{att.original_name}</span>
                                 <span className="block text-[11px] text-gray-500">{formatSize(att.size)}</span>
@@ -759,6 +806,19 @@ export default function VisualizarChamado() {
                 <select
                   className={`${inputClass} !rounded-full`}
                   value={ticket.situation_id}
+                  onMouseDown={(e) => {
+                    if (isRequester) {
+                      if (available.length === 0) {
+                        e.preventDefault()
+                        toast.info('Ainda não há situações disponíveis para alteração. Aguarde as próximas situações do chamado.')
+                      }
+                      return
+                    }
+                    if (!ticket.responsible_user_id) {
+                      e.preventDefault()
+                      toast.error('O chamado precisa ter um demandado. Escolha um demandado antes de alterar a situação.')
+                    }
+                  }}
                   onChange={(e) => changeSituation(e.target.value)}
                 >
                   <option value="">Selecione…</option>
@@ -767,13 +827,6 @@ export default function VisualizarChamado() {
                   ))}
                 </select>
                 <p className="text-label-md text-on-surface-variant mt-2 leading-relaxed">As transições seguem as regras definidas nas Situações.</p>
-              </div>
-            </Section>
-
-            <Section title="Responsáveis">
-              <div className="space-y-4">
-                <PersonLine name={ticket.requesting_user?.name} role="Solicitante" />
-                <PersonLine name={ticket.responsible_user?.name || 'Não atribuído'} role="Responsável" />
               </div>
             </Section>
           </div>
@@ -886,13 +939,13 @@ export default function VisualizarChamado() {
                   <div className="mx-auto w-14 h-14 rounded-full flex items-center justify-center mb-md text-primary bg-primary/10">
                     <span className="material-symbols-outlined text-[28px]">support_agent</span>
                   </div>
-                  <h3 className="font-title-lg text-title-lg text-on-surface mb-sm">Escolher responsável</h3>
+                  <h3 className="font-title-lg text-title-lg text-on-surface mb-sm">Escolher demandado</h3>
                   <p className="text-body-md text-on-surface-variant leading-relaxed">
-                    O chamado <strong className="text-on-surface">#{ticket.number}</strong> ainda não possui responsável. Selecione o responsável para poder gravar o comentário.
+                    O chamado <strong className="text-on-surface">#{ticket.number}</strong> ainda não possui demandado. Selecione o demandado para poder gravar o comentário.
                   </p>
                 </div>
                 <div className="px-lg">
-                  <label className="text-label-md font-semibold text-on-surface-variant block mb-2">Responsável</label>
+                  <label className="text-label-md font-semibold text-on-surface-variant block mb-2">Demandado</label>
                   <select
                     className={`${inputClass} !rounded-xl`}
                     value={commentFlow.responsible_id}
@@ -980,7 +1033,7 @@ export default function VisualizarChamado() {
                   {commentFlow.responsible_id && (
                     <div className="mb-md inline-flex items-center gap-2 rounded-full px-lg py-sm bg-primary/10 text-primary font-label-md font-semibold">
                       <span className="material-symbols-outlined text-[16px] shrink-0">support_agent</span>
-                      Responsável: {users.find((u) => String(u.id) === String(commentFlow.responsible_id))?.name}
+                      Demandado: {users.find((u) => String(u.id) === String(commentFlow.responsible_id))?.name}
                     </div>
                   )}
                   {commentFlow.target ? (
@@ -1032,6 +1085,46 @@ function formatSize(bytes) {
   return `${Math.max(1, Math.round(bytes / 1024))} KB`
 }
 
+function fileTypeInfo(att) {
+  const name = (att?.original_name || '').toLowerCase()
+  const mime = (att?.mime || '').toLowerCase()
+  const ext = name.includes('.') ? name.split('.').pop() : ''
+
+  const match = (list) => list.some((k) => mime.includes(k) || ext === k || name.endsWith(k))
+
+  if (mime.startsWith('image/') || match(['.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg', '.bmp', '.heic', '.heif'])) {
+    return { icon: 'image', color: '#0ea5e9', bg: 'bg-sky-500/10' }
+  }
+  if (match(['pdf', '.pdf'])) {
+    return { icon: 'picture_as_pdf', color: '#dc2626', bg: 'bg-red-500/10' }
+  }
+  if (mime.startsWith('audio/') || match(['.mp3', '.wav', '.ogg', '.flac', '.m4a', '.aac'])) {
+    return { icon: 'audiotrack', color: '#7c3aed', bg: 'bg-violet-500/10' }
+  }
+  if (mime.startsWith('video/') || match(['.mp4', '.mov', '.avi', '.mkv', '.webm', '.wmv', '.m4v'])) {
+    return { icon: 'movie', color: '#db2777', bg: 'bg-pink-500/10' }
+  }
+  if (match(['spreadsheet', 'sheet', '.xls', '.xlsx', '.csv', '.ods', 'excel'])) {
+    return { icon: 'table_chart', color: '#16a34a', bg: 'bg-green-500/10' }
+  }
+  if (match(['presentation', '/powerpoint', '.ppt', '.pptx', '.odp'])) {
+    return { icon: 'slideshow', color: '#ea580c', bg: 'bg-orange-500/10' }
+  }
+  if (match(['csv', '.csv', '.txt', '/plain', '.md', '.log'])) {
+    return { icon: 'text_snippet', color: '#64748b', bg: 'bg-slate-500/10' }
+  }
+  if (match(['zip', 'compressed', 'archive', '.zip', '.rar', '.7z', '.tar', '.gz'])) {
+    return { icon: 'folder_zip', color: '#b45309', bg: 'bg-amber-500/10' }
+  }
+  if (match(['word', 'document', 'officedocument', '.doc', '.docx', '.odt', '.rtf'])) {
+    return { icon: 'description', color: '#2563eb', bg: 'bg-blue-500/10' }
+  }
+  if (match(['code', 'javascript', 'typescript', 'json', 'xml', 'html', '.js', '.ts', '.py', '.json', '.xml', '.html', '.css', '.php', '.java', '.cs', '.rb', '.go', '.rs'])) {
+    return { icon: 'code', color: '#0f172a', bg: 'bg-slate-500/10' }
+  }
+  return { icon: 'insert_drive_file', color: '#64748b', bg: 'bg-slate-500/10' }
+}
+
 function Avatar({ name, size = 'w-9 h-9 rounded-full' }) {
   return (
     <div className={`${size} bg-gradient-to-br from-primary-container to-primary flex items-center justify-center font-bold text-sm text-white shadow-sm shrink-0`}>
@@ -1052,7 +1145,7 @@ function StatusChip({ label, color }) {
   )
 }
 
-function Stat({ icon, tint, label, value }) {
+function Stat({ icon, tint, label, value, subvalue }) {
   return (
     <div className="flex items-center gap-3 rounded-2xl bg-black/[0.03] p-4">
       <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${tint}`}>
@@ -1061,6 +1154,7 @@ function Stat({ icon, tint, label, value }) {
       <div className="min-w-0">
         <p className="text-[11px] font-bold uppercase tracking-wide text-on-surface-variant break-words">{label}</p>
         <p className="text-body-md font-bold text-on-surface break-words">{value || '—'}</p>
+        {subvalue && <p className="text-label-md text-on-surface-variant break-words truncate">{subvalue}</p>}
       </div>
     </div>
   )
@@ -1071,18 +1165,6 @@ function Info({ label, value }) {
     <div className="min-w-0">
       <p className="text-[11px] font-bold uppercase tracking-wide text-on-surface-variant">{label}</p>
       <p className="font-body-md font-semibold text-on-surface mt-1 break-words">{value || '—'}</p>
-    </div>
-  )
-}
-
-function PersonLine({ name, role }) {
-  return (
-    <div className="flex items-center gap-3">
-      <Avatar name={name || '—'} size="w-9 h-9 rounded-full text-xs" />
-      <div className="min-w-0">
-        <p className="font-body-md font-semibold text-on-surface truncate">{name || '—'}</p>
-        <p className="text-label-md text-on-surface-variant">{role}</p>
-      </div>
     </div>
   )
 }
@@ -1136,7 +1218,7 @@ function historyChanges(h) {
     { label: 'Classificação', key: 'classification_name' },
     { label: 'Título', key: 'title' },
     { label: 'Descrição', key: 'description' },
-    { label: 'Responsável', key: 'responsible_user_name' },
+    { label: 'Demandado', key: 'responsible_user_name' },
     { label: 'Situação', key: 'situation_name' },
   ]
 

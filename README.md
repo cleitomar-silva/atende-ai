@@ -148,30 +148,5 @@ docker compose down -v            # parar e apagar os volumes (banco)
 
 
 
-## TODO
-OK 1. numero do chamado
 
-OK 2. inserir no historico o nome de quem fez a atualização
-
-OK 3. na tela de visualizacao de chamados sempre que forem gravar um comentario o sistema antes de gravar perguntar se o usuario quer alterar a situcao. exbir um alerta com as opcoes disponiveis de situações, exbir uns botoes com as situações. perguntar se quer alterar a sitacao ou so comentar, caso escolha a opção 'comentar' a situacao nao sera alterada. solictar confirmação, tendo a possibilidade de retornar e escolher outra situacao. e confirmando sera gravado o comentario e a situacao. caso a opcao selecionada seja 'comentar' so comentario sera gravado, com arquivo se tiver. somente avancar para solictar a situações se o chamado tiver responsavel, caso nao tenha responsavel o sistema deve disponibilizar a opcao de escolher um responsavel. e depois avancar para escolher a situacao, isso no caso de o setor demandado comentar. ja se o usuario solicitante comnetar, nao precisa verificar o responsavel pois o solicitante nao escolhe o responsavel. Essas alteracoes não incluem quando o usuario inserir 'Nota Interna'.
-
-OK 4. no card de chamados vinculados informar data e hora do vinculo.
-
-OK 5. no card Classificação possibilitar exibir o nome completo.
-
-6. ao concluir o chamado o sistema informar qual foi o tempo de SLA que foi utilizado
-
-OK 7. informar que é 'nota interna' no chat. colocar 'Nota Interna:' e na sequencia o comentario.
-
-OK 8. usuario do setor demandado consegue ver a nota interna do usuario solicitante, mesmo sendo de setor difente. e vice versa. nao permitir.
-
-9. o anexo da nota interna deve ficar dentro do card que tem o texto.
-
-10. ícones dos arquivos, se for imagem colocar um ícone de imagem, se for pdf colocar o ícone de pdf, se  for áudio, vídeo etc colocar o ícone correspondente.
-
-11. quando chamado estiver nao iniciado o sistema deve informar que tem que tem responsavel. pedir para o usuario do setor demandado colocar um responsavel
-
-OK 12. permitir o qualquer usuario vincular o chamado
-
-OK 13. colocar um spinner loading quando tiver buscando um chamado vinculado
 

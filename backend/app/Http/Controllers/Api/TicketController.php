@@ -13,6 +13,7 @@ use App\Models\TicketAttachment;
 use App\Models\TicketComment;
 use App\Models\TicketLink;
 use App\Models\User;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -143,6 +144,7 @@ class TicketController extends Controller
             'available_situations' => $available,
             'history' => $history,
             'linked_tickets' => $linkedTickets,
+            'sla' => $this->slaInfo($ticket),
         ]);
     }
 
@@ -439,8 +441,20 @@ class TicketController extends Controller
         $before = ['situation_id' => $ticket->situation_id];
 
         $ticket->situation_id = $newSituation->id;
+        $slaInfo = null;
         if ($newSituation->name === 'Concluído') {
             $ticket->closed_at = now();
+
+            $slaMinutes = $ticket->classification?->sla_minutes;
+            if ($slaMinutes) {
+                $usedMinutes = $this->slaUsedMinutes($ticket);
+                $slaInfo = [
+                    'used_minutes' => $usedMinutes,
+                    'limit_minutes' => (int) $slaMinutes,
+                    'delivered' => $usedMinutes <= (int) $slaMinutes,
+                    'message' => $this->formatSlaMessage($usedMinutes, (int) $slaMinutes),
+                ];
+            }
         }
         $ticket->save();
 
@@ -450,11 +464,20 @@ class TicketController extends Controller
             'user_id' => $user->id,
         ]);
 
-        Auditor::record('Ticket', 'situation', $ticket->id, "Situação alterada: \"{$current->name}\" → \"{$newSituation->name}\".", $before, ['situation_id' => $newSituation->id]);
+        $situationSummary = "Situação alterada: \"{$current->name}\" → \"{$newSituation->name}\".";
+        if ($slaInfo) {
+            $situationSummary .= ' '.$slaInfo['message'];
+        }
 
-        $this->notifyRequester($ticket, "A situação do chamado #{$ticket->number} mudou para \"{$newSituation->name}\".");
+        Auditor::record('Ticket', 'situation', $ticket->id, $situationSummary, $before, $slaInfo ? ['situation_id' => $newSituation->id, 'sla' => $slaInfo] : ['situation_id' => $newSituation->id]);
 
-        return response()->json(['ticket' => $ticket->load('situation')]);
+        $notification = "A situação do chamado #{$ticket->number} mudou para \"{$newSituation->name}\".";
+        if ($slaInfo) {
+            $notification .= ' '.$slaInfo['message'];
+        }
+        $this->notifyRequester($ticket, $notification);
+
+        return response()->json(['ticket' => $ticket->load('situation'), 'sla' => $slaInfo]);
     }
 
     public function downloadAttachment(Request $request, int $id, int $attachmentId)
@@ -653,6 +676,93 @@ class TicketController extends Controller
         }
 
         return $changes;
+    }
+
+    private function slaUsedMinutes(Ticket $ticket, ?Carbon $until = null): int
+    {
+        $until = $until ?: now();
+
+        $history = DB::table('ticket_situation_history')
+            ->where('ticket_id', $ticket->id)
+            ->orderBy('created_at')
+            ->orderBy('id')
+            ->get();
+
+        if ($history->isEmpty()) {
+            return 0;
+        }
+
+        $countsMap = Situation::where('company_id', $ticket->company_id)
+            ->pluck('counts_sla', 'id');
+
+        $total = 0;
+
+        foreach ($history as $i => $entry) {
+            if (! ($countsMap[$entry->situation_id] ?? false)) {
+                continue;
+            }
+
+            $start = Carbon::parse($entry->created_at);
+            $end = isset($history[$i + 1]) ? Carbon::parse($history[$i + 1]->created_at) : $until;
+
+            if ($end->greaterThan($until)) {
+                $end = $until;
+            }
+
+            if ($end->greaterThan($start)) {
+                $total += (int) round($start->diffInMinutes($end));
+            }
+        }
+
+        return $total;
+    }
+
+    private function slaInfo(Ticket $ticket): ?array
+    {
+        $slaMinutes = $ticket->classification?->sla_minutes;
+
+        if (! $slaMinutes) {
+            return null;
+        }
+
+        $until = $ticket->closed_at ?: now();
+        $usedMinutes = $this->slaUsedMinutes($ticket, $until);
+
+        return [
+            'limit_minutes' => (int) $slaMinutes,
+            'used_minutes' => $usedMinutes,
+            'delivered' => $usedMinutes <= (int) $slaMinutes,
+        ];
+    }
+
+    private function formatSlaTime(int $minutes): string
+    {
+        if ($minutes >= 1440) {
+            return intdiv($minutes, 1440).'d '.intdiv($minutes % 1440, 60).'h';
+        }
+
+        if ($minutes >= 60) {
+            $hours = intdiv($minutes, 60);
+            $rest = $minutes % 60;
+
+            return $rest ? $hours.'h '.$rest.'min' : $hours.'h';
+        }
+
+        return $minutes.'min';
+    }
+
+    private function formatSlaMessage(int $usedMinutes, int $limitMinutes): string
+    {
+        $used = $this->formatSlaTime($usedMinutes);
+        $limit = $this->formatSlaTime($limitMinutes);
+
+        if ($usedMinutes <= $limitMinutes) {
+            return "Atendimento concluído dentro do SLA. Tempo de SLA utilizado: {$used} (limite de {$limit}).";
+        }
+
+        $exceeded = $this->formatSlaTime($usedMinutes - $limitMinutes);
+
+        return "Atendimento concluído fora do SLA. Tempo de SLA utilizado: {$used}, excedendo o limite de {$limit} em {$exceeded}.";
     }
 
     private function notifyRequester(Ticket $ticket, string $message): void
