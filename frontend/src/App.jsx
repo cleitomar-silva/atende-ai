@@ -11,6 +11,7 @@ import Grupo from './pages/Grupo.jsx'
 import Categoria from './pages/Categoria.jsx'
 import Classificacao from './pages/Classificacao.jsx'
 import Situacao from './pages/Situacao.jsx'
+import SituacaoForm from './pages/SituacaoForm.jsx'
 import Chamados from './pages/Chamados.jsx'
 import MeusChamados from './pages/MeusChamados.jsx'
 import Relatorios from './pages/Relatorios.jsx'
@@ -46,6 +47,8 @@ export default function App() {
         <Route path="/categoria" element={<AdminRoute><Categoria /></AdminRoute>} />
         <Route path="/classificacao" element={<AdminRoute><Classificacao /></AdminRoute>} />
         <Route path="/situacao" element={<AdminRoute><Situacao /></AdminRoute>} />
+        <Route path="/situacao/novo" element={<AdminRoute><SituacaoForm /></AdminRoute>} />
+        <Route path="/situacao/:id/editar" element={<AdminRoute><SituacaoForm /></AdminRoute>} />
         <Route path="/operacoes" element={<AdminRoute><Operacoes /></AdminRoute>} />
       </Routes>
     </BrowserRouter>

@@ -22,6 +22,15 @@ class SituationController extends Controller
         return response()->json(['situations' => $situations]);
     }
 
+    public function show(Request $request, int $id)
+    {
+        $situation = Situation::with('transitions.toSituation')
+            ->where('company_id', $request->user()->company_id)
+            ->findOrFail($id);
+
+        return response()->json(['situation' => $situation]);
+    }
+
     public function store(Request $request)
     {
         if (! $request->user()->isAdmin()) {

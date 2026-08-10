@@ -62,6 +62,7 @@ Route::middleware(['api.auth'])->group(function () {
         Route::delete('/categories/{id}', [CategoryController::class, 'destroy']);
 
         Route::post('/situations', [SituationController::class, 'store']);
+        Route::get('/situations/{id}', [SituationController::class, 'show']);
         Route::put('/situations/{id}', [SituationController::class, 'update']);
         Route::delete('/situations/{id}', [SituationController::class, 'destroy']);
 
