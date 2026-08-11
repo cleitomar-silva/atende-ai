@@ -41,6 +41,7 @@ class SituationController extends Controller
             'name' => 'required|string|max:255',
             'color' => 'required|string|max:9',
             'counts_sla' => 'boolean',
+            'permitir_comentario' => 'boolean',
         ]);
 
         if (Situation::where('company_id', $request->user()->company_id)->where('name', $request->name)->exists()) {
@@ -53,6 +54,7 @@ class SituationController extends Controller
             'color' => $request->color,
             'counts_sla' => $request->boolean('counts_sla', true),
             'is_active' => true,
+            'permitir_comentario' => $request->boolean('permitir_comentario', true),
         ]);
 
         $this->syncTransitions($request, $situation);
@@ -75,22 +77,24 @@ class SituationController extends Controller
             'color' => 'required|string|max:9',
             'counts_sla' => 'boolean',
             'is_active' => 'boolean',
+            'permitir_comentario' => 'boolean',
         ]);
 
         if (Situation::where('company_id', $request->user()->company_id)->where('name', $request->name)->where('id', '!=', $situation->id)->exists()) {
             return response()->json(['message' => 'Já existe uma situação com este nome.'], 422);
         }
 
-        $before = $situation->load('transitions.toSituation')->only(['name', 'color', 'counts_sla', 'is_active', 'transitions']);
+        $before = $situation->load('transitions.toSituation')->only(['name', 'color', 'counts_sla', 'is_active', 'permitir_comentario', 'transitions']);
         $situation->name = $request->name;
         $situation->color = $request->color;
         $situation->counts_sla = $request->boolean('counts_sla', $situation->counts_sla);
         $situation->is_active = $request->boolean('is_active', $situation->is_active);
+        $situation->permitir_comentario = $request->boolean('permitir_comentario', $situation->permitir_comentario);
         $situation->save();
 
         $this->syncTransitions($request, $situation);
 
-        $after = $situation->load('transitions.toSituation')->only(['name', 'color', 'counts_sla', 'is_active', 'transitions']);
+        $after = $situation->load('transitions.toSituation')->only(['name', 'color', 'counts_sla', 'is_active', 'permitir_comentario', 'transitions']);
 
         Auditor::record('Situation', 'update', $situation->id, "Situação \"{$situation->name}\" atualizada.", $before, $after);
 

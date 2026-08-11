@@ -149,31 +149,6 @@ docker compose down -v            # parar e apagar os volumes (banco)
 
 
 
-## TODO
 
-Na pagina de situações
-
-Ao cadastrar ou editar acrescentar mais uma opção no formulário de situações. incluir a opção 'Permitir Comentario' a baixo do campo Ativo.
-
-Ao criar uma conta alterar as situações padrões que são criadas automáticas. Ao criar a conta as situações automáticas que devem ser geradas são: 
-Cancelado ( SLA desativado, status Ativo e Permitir Comentário desativado ) ,
-Concluído ( SLA desativado,status Ativo e Permitir Comentário desativado ), 
-Em atendimento ( SLA ativo, status Ativo e Permitir Comentário ativo ),
-Não iniciado ( SLA desativado, status Ativo e Permitir Comentário ativo )
-
-obs: os comentarios sao para ombos usuarios, solicitante e demandado.
-
-para as situações geradas automáticas  inserir as transições : 
-
-. para a situação 'Cancelado' com a transição 'Em atendimento' ( a opção marcada demandado )'
-
-. para a situação 'Concluído' com a transição 'Em atendimento' ( a opção marcada demandado )'
-
-. para a situação 'Em atendimento' com transição 'Cancelado' ( com as opções marcadas solicitante e demandado ), 'Concluído' ( com a opção marcada demandado )
-
-. para a situação 'Não iniciado' com a transição 'Cancelado' ( com as opções marcadas solicitante e demandado ), 'Em atendimento' ( a opção marcada demandado )'
-
-
-A pagina de chamados devera ser acrescentado essa regra de comentarios, so devera permitir comentar caso a situação esteja com Permitir Comentário ativo 
 
 

@@ -25,7 +25,7 @@ export default function SituacaoForm() {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [notFound, setNotFound] = useState(false)
-  const { values, setValues, handleChange } = useForm({ name: '', color: PALETA[0], counts_sla: true, is_active: true, transitions: {} })
+  const { values, setValues, handleChange } = useForm({ name: '', color: PALETA[0], counts_sla: true, is_active: true, permitir_comentario: true, transitions: {} })
 
   useEffect(() => {
     let active = true
@@ -55,6 +55,7 @@ export default function SituacaoForm() {
             color: s.color || PALETA[0],
             counts_sla: Boolean(s.counts_sla),
             is_active: Boolean(s.is_active),
+            permitir_comentario: Boolean(s.permitir_comentario),
             transitions,
           })
         }
@@ -90,7 +91,7 @@ export default function SituacaoForm() {
     setSaving(true)
     setError('')
     try {
-      const payload = { name: values.name, color: values.color, counts_sla: Boolean(values.counts_sla) }
+      const payload = { name: values.name, color: values.color, counts_sla: Boolean(values.counts_sla), permitir_comentario: Boolean(values.permitir_comentario) }
       payload.transitions = Object.entries(values.transitions || {})
         .map(([toId, roles]) => ({ to_situation_id: Number(toId), roles }))
         .filter((t) => t.roles.length > 0)
@@ -175,6 +176,10 @@ export default function SituacaoForm() {
                     <input type="checkbox" name="is_active" checked={Boolean(values.is_active)} onChange={handleChange} className="w-5 h-5 accent-[#004ccd]" />
                   </div>
                 )}
+                <div className="flex items-center justify-between">
+                  <span className="font-label-md text-on-surface-variant">Permitir Comentário</span>
+                  <input type="checkbox" name="permitir_comentario" checked={Boolean(values.permitir_comentario)} onChange={handleChange} className="w-5 h-5 accent-[#004ccd]" />
+                </div>
               </div>
             </Card>
 

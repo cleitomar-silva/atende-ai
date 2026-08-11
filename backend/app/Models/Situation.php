@@ -11,11 +11,12 @@ class Situation extends Model
 {
     use HasFactory;
 
-    protected $fillable = ['company_id', 'name', 'color', 'counts_sla', 'is_active'];
+    protected $fillable = ['company_id', 'name', 'color', 'counts_sla', 'is_active', 'permitir_comentario'];
 
     protected $casts = [
         'counts_sla' => 'boolean',
         'is_active' => 'boolean',
+        'permitir_comentario' => 'boolean',
     ];
 
     public function company(): BelongsTo

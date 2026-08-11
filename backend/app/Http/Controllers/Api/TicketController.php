@@ -376,6 +376,10 @@ class TicketController extends Controller
         $user = $request->user();
         $ticket = $this->ticket($request, $id);
 
+        if (! $ticket->situation?->permitir_comentario) {
+            return response()->json(['message' => "A situação \"{$ticket->situation?->name}\" não permite comentários."], 422);
+        }
+
         $request->validate([
             'content' => 'nullable|string',
             'is_internal' => 'boolean',

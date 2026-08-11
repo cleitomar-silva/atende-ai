@@ -34,15 +34,21 @@ class DatabaseSeeder extends Seeder
         $sectors = collect(['TI', 'Financeiro', 'RH'])
             ->map(fn ($name) => Sector::create(['company_id' => $company->id, 'name' => $name]));
 
-        $situations = collect([
-            'Não iniciado' => '#64748b',
-            'Em atendimento' => '#0f62fe',
-            'Aguardando validação' => '#f59e0b',
-            'Concluído' => '#16a34a',
-            'Cancelar' => '#dc2626',
-        ])->map(fn ($color, $name) => Situation::create(
-            ['company_id' => $company->id, 'name' => $name, 'color' => $color, 'counts_sla' => true]
-        ));
+        $defaultSituations = [
+            'Não iniciado' => ['color' => '#64748b', 'counts_sla' => false, 'permitir_comentario' => true],
+            'Em atendimento' => ['color' => '#0f62fe', 'counts_sla' => true, 'permitir_comentario' => true],
+            'Concluído' => ['color' => '#16a34a', 'counts_sla' => false, 'permitir_comentario' => false],
+            'Cancelado' => ['color' => '#dc2626', 'counts_sla' => false, 'permitir_comentario' => false],
+        ];
+
+        $situations = collect($defaultSituations)->map(fn ($config, $name) => Situation::create([
+            'company_id' => $company->id,
+            'name' => $name,
+            'color' => $config['color'],
+            'counts_sla' => $config['counts_sla'],
+            'is_active' => true,
+            'permitir_comentario' => $config['permitir_comentario'],
+        ]));
 
         $this->createDefaultTransitions($company, $situations);
 
@@ -99,20 +105,19 @@ class DatabaseSeeder extends Seeder
         $ROLE_RESPONSIBLE = \App\Models\SituationTransition::ROLE_RESPONSIBLE;
 
         $rules = [
-            'Não iniciado' => [
+            'Cancelado' => [
                 'Em atendimento' => [$ROLE_RESPONSIBLE],
-                'Concluído' => [$ROLE_REQUESTER, $ROLE_RESPONSIBLE],
-                'Cancelar' => [$ROLE_REQUESTER, $ROLE_RESPONSIBLE],
+            ],
+            'Concluído' => [
+                'Em atendimento' => [$ROLE_RESPONSIBLE],
             ],
             'Em atendimento' => [
-                'Aguardando validação' => [$ROLE_RESPONSIBLE],
-                'Concluído' => [$ROLE_REQUESTER, $ROLE_RESPONSIBLE],
-                'Cancelar' => [$ROLE_REQUESTER, $ROLE_RESPONSIBLE],
+                'Cancelado' => [$ROLE_REQUESTER, $ROLE_RESPONSIBLE],
+                'Concluído' => [$ROLE_RESPONSIBLE],
             ],
-            'Aguardando validação' => [
-                'Em atendimento' => [$ROLE_REQUESTER],
-                'Concluído' => [$ROLE_REQUESTER, $ROLE_RESPONSIBLE],
-                'Cancelar' => [$ROLE_REQUESTER, $ROLE_RESPONSIBLE],
+            'Não iniciado' => [
+                'Cancelado' => [$ROLE_REQUESTER, $ROLE_RESPONSIBLE],
+                'Em atendimento' => [$ROLE_RESPONSIBLE],
             ],
         ];
 

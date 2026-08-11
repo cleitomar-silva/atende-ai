@@ -257,21 +257,21 @@ class AuthController extends Controller
         $melhoria = Category::create(['company_id' => $company->id, 'name' => 'Melhoria', 'is_active' => true]);
         $requisicao = Category::create(['company_id' => $company->id, 'name' => 'Requisição', 'is_active' => true]);
 
-        $defaultColors = [
-            'Não iniciado' => '#64748b',
-            'Em atendimento' => '#0f62fe',
-            'Aguardando validação' => '#f59e0b',
-            'Concluído' => '#16a34a',
-            'Cancelar' => '#dc2626',
+        $defaultSituations = [
+            'Não iniciado' => ['color' => '#64748b', 'counts_sla' => false, 'permitir_comentario' => true],
+            'Em atendimento' => ['color' => '#0f62fe', 'counts_sla' => true, 'permitir_comentario' => true],
+            'Concluído' => ['color' => '#16a34a', 'counts_sla' => false, 'permitir_comentario' => false],
+            'Cancelado' => ['color' => '#dc2626', 'counts_sla' => false, 'permitir_comentario' => false],
         ];
 
-        foreach ($defaultColors as $name => $color) {
+        foreach ($defaultSituations as $name => $config) {
             Situation::create([
                 'company_id' => $company->id,
                 'name' => $name,
-                'color' => $color,
-                'counts_sla' => true,
+                'color' => $config['color'],
+                'counts_sla' => $config['counts_sla'],
                 'is_active' => true,
+                'permitir_comentario' => $config['permitir_comentario'],
             ]);
         }
 
@@ -310,20 +310,19 @@ class AuthController extends Controller
         $ROLE_RESPONSIBLE = \App\Models\SituationTransition::ROLE_RESPONSIBLE;
 
         $rules = [
-            'Não iniciado' => [
+            'Cancelado' => [
                 'Em atendimento' => [$ROLE_RESPONSIBLE],
-                'Concluído' => [$ROLE_REQUESTER, $ROLE_RESPONSIBLE],
-                'Cancelar' => [$ROLE_REQUESTER, $ROLE_RESPONSIBLE],
+            ],
+            'Concluído' => [
+                'Em atendimento' => [$ROLE_RESPONSIBLE],
             ],
             'Em atendimento' => [
-                'Aguardando validação' => [$ROLE_RESPONSIBLE],
-                'Concluído' => [$ROLE_REQUESTER, $ROLE_RESPONSIBLE],
-                'Cancelar' => [$ROLE_REQUESTER, $ROLE_RESPONSIBLE],
+                'Cancelado' => [$ROLE_REQUESTER, $ROLE_RESPONSIBLE],
+                'Concluído' => [$ROLE_RESPONSIBLE],
             ],
-            'Aguardando validação' => [
-                'Em atendimento' => [$ROLE_REQUESTER],
-                'Concluído' => [$ROLE_REQUESTER, $ROLE_RESPONSIBLE],
-                'Cancelar' => [$ROLE_REQUESTER, $ROLE_RESPONSIBLE],
+            'Não iniciado' => [
+                'Cancelado' => [$ROLE_REQUESTER, $ROLE_RESPONSIBLE],
+                'Em atendimento' => [$ROLE_RESPONSIBLE],
             ],
         ];
 

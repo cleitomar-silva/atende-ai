@@ -25,6 +25,8 @@ export default function VisualizarChamado() {
   const [isInternal, setIsInternal] = useState(false)
   const [commentFlow, setCommentFlow] = useState({ step: 'choose', target: null, responsible_id: '' })
   const [commentFlowOpen, setCommentFlowOpen] = useState(false)
+  const [situationFlow, setSituationFlow] = useState({ step: 'chooseResponsible', target: null, responsible_id: '' })
+  const [situationFlowOpen, setSituationFlowOpen] = useState(false)
   const [sending, setSending] = useState(false)
   const [error, setError] = useState('')
   const [editing, setEditing] = useState(false)
@@ -90,7 +92,8 @@ export default function VisualizarChamado() {
   const isResponsible = ticket.responsible_user_id === user?.id
   const isAdmin = user?.role === 'admin'
   const isDemandedSectorMember = (user?.sectors || []).some((s) => s.id === ticket.responsible_sector_id)
-  const canSendComment = isRequester || isResponsible || isAdmin
+  const canSendComment = (isRequester || isResponsible || isAdmin) && Boolean(ticket.situation?.permitir_comentario)
+  const commentsDisabled = !Boolean(ticket.situation?.permitir_comentario)
   const canEdit = isResponsible || isAdmin
   const nonCommentAttachments = (ticket.attachments || []).filter((a) => !a.ticket_comment_id)
 
@@ -170,9 +173,6 @@ export default function VisualizarChamado() {
           },
         })
       }
-      if (target) {
-        await api(`/tickets/${id}/situation`, { method: 'POST', body: { situation_id: Number(target.id) } })
-      }
       const body = new FormData()
       body.append('content', comment)
       body.append('is_internal', isInternal ? '1' : '0')
@@ -181,6 +181,9 @@ export default function VisualizarChamado() {
       const savedCount = data?.comment?.attachments?.length ?? 0
       if (commentFiles.length > 0 && savedCount !== commentFiles.length) {
         throw new Error('Alguns arquivos não puderam ser gravados. Tente novamente.')
+      }
+      if (target) {
+        await api(`/tickets/${id}/situation`, { method: 'POST', body: { situation_id: Number(target.id) } })
       }
       setComment('')
       setCommentFiles([])
@@ -207,15 +210,21 @@ export default function VisualizarChamado() {
     if (!situationId) return
     if (isRequester) {
       if (available.length === 0) {
-        toast.info('Ainda não há situações disponíveis para alteração. Aguarde as próximas situações do chamado.')
+        toast.info('Não há situações disponíveis para alteração.')
         return
       }
-    } else if (!ticket.responsible_user_id) {
-      toast.error('O chamado precisa ter um demandado. Escolha um demandado antes de alterar a situação.')
-      return
     }
     const target = available.find((s) => String(s.id) === String(situationId))
     if (!target) return
+    if (!isRequester && !ticket.responsible_user_id) {
+      if (isDemandedSectorMember || isAdmin) {
+        setSituationFlow({ step: 'chooseResponsible', target, responsible_id: '' })
+        setSituationFlowOpen(true)
+        return
+      }
+      toast.error('O chamado precisa ter um demandado. Escolha um demandado antes de alterar a situação.')
+      return
+    }
     const current = ticket.situation
 
     const ok = await confirm({
@@ -247,6 +256,53 @@ export default function VisualizarChamado() {
       }
     } catch (err) {
       toast.error(err.message)
+    }
+  }
+
+  const continueSituationFlow = async () => {
+    if (!situationFlow.responsible_id || sending) return
+    setSending(true)
+    setError('')
+    try {
+      if (Number(situationFlow.responsible_id) !== Number(ticket.responsible_user_id)) {
+        await api(`/tickets/${id}`, {
+          method: 'PUT',
+          body: {
+            classification_id: Number(ticket.classification_id),
+            title: ticket.title,
+            description: ticket.description,
+            responsible_user_id: Number(situationFlow.responsible_id),
+            keep_existing_attachments: true,
+          },
+        })
+        await refresh()
+      }
+      setSituationFlow((p) => ({ ...p, step: 'choose' }))
+    } catch (err) {
+      toast.error(err.message)
+    } finally {
+      setSending(false)
+    }
+  }
+
+  const confirmSituationFlow = async () => {
+    if (!situationFlow.target || sending) return
+    setSending(true)
+    setError('')
+    try {
+      const data = await api(`/tickets/${id}/situation`, { method: 'POST', body: { situation_id: Number(situationFlow.target.id) } })
+      setSituationFlowOpen(false)
+      setSituationFlow({ step: 'chooseResponsible', target: null, responsible_id: '' })
+      load()
+      if (data?.sla?.message) {
+        toast.info(`Situação alterada para "${situationFlow.target.name}". ${data.sla.message}`, 8000)
+      } else {
+        toast.success(`Situação alterada para "${situationFlow.target.name}".`)
+      }
+    } catch (err) {
+      toast.error(err.message)
+    } finally {
+      setSending(false)
     }
   }
 
@@ -405,9 +461,7 @@ export default function VisualizarChamado() {
       <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_330px] gap-lg items-start">
         <div className="space-y-lg min-w-0">
         {/* Painel principal */}
-      <div className="relative overflow-hidden rounded-[28px] bg-[rgba(255,255,255,0.9)] shadow-[0_40px_80px_-40px_rgba(15,40,120,0.35)] ring-1 ring-black/5">
-        <div className="pointer-events-none absolute -top-28 -right-24 h-80 w-80 rounded-full bg-gradient-to-br from-primary/15 via-primary/5 to-transparent blur-2xl"></div>
-        <div className="pointer-events-none absolute -bottom-32 left-1/4 h-72 w-72 rounded-full bg-gradient-to-tr from-secondary-container/50 to-transparent blur-3xl"></div>
+      <div className="relative overflow-hidden rounded-[28px] bg-white shadow-[0_40px_80px_-40px_rgba(15,40,120,0.35)] ring-1 ring-black/5">
         <div className="relative p-lg sm:p-xl space-y-xl">
           <div className="flex items-start justify-between gap-md">
             <div>
@@ -658,7 +712,7 @@ export default function VisualizarChamado() {
             )}
           </div>
 
-          {canSendComment && (
+          {canSendComment ? (
             <form onSubmit={sendComment} className="p-md sm:p-lg bg-white">
               <div className="flex gap-sm mb-3 flex-wrap">
                 <Toggler active={!isInternal} onClick={() => setIsInternal(false)} type="customer">
@@ -722,7 +776,14 @@ export default function VisualizarChamado() {
                 </div>
               </div>
             </form>
-          )}
+          ) : commentsDisabled && (isRequester || isResponsible || isAdmin) ? (
+            <div className="p-md sm:p-lg bg-white">
+              <div className="flex items-center gap-2 rounded-2xl bg-black/[0.03] px-md py-sm text-label-md font-medium text-on-surface-variant">
+                <span className="material-symbols-outlined text-[18px] shrink-0">block</span>
+                <span>A situação atual não permite comentários.</span>
+              </div>
+            </div>
+          ) : null}
         </div>
 
         {/* Histórico (recolhido por padrão) */}
@@ -810,11 +871,17 @@ export default function VisualizarChamado() {
                     if (isRequester) {
                       if (available.length === 0) {
                         e.preventDefault()
-                        toast.info('Ainda não há situações disponíveis para alteração. Aguarde as próximas situações do chamado.')
+toast.info('Não há situações disponíveis para alteração.')
                       }
                       return
                     }
                     if (!ticket.responsible_user_id) {
+                      if (isDemandedSectorMember || isAdmin) {
+                        e.preventDefault()
+                        setSituationFlow({ step: 'chooseResponsible', target: null, responsible_id: '' })
+                        setSituationFlowOpen(true)
+                        return
+                      }
                       e.preventDefault()
                       toast.error('O chamado precisa ter um demandado. Escolha um demandado antes de alterar a situação.')
                     }
@@ -934,49 +1001,16 @@ export default function VisualizarChamado() {
             <div className="h-1.5 bg-gradient-to-r from-primary via-primary-container to-tertiary" />
 
             {commentFlow.step === 'chooseResponsible' ? (
-              <>
-                <div className="p-lg pt-xl text-center">
-                  <div className="mx-auto w-14 h-14 rounded-full flex items-center justify-center mb-md text-primary bg-primary/10">
-                    <span className="material-symbols-outlined text-[28px]">support_agent</span>
-                  </div>
-                  <h3 className="font-title-lg text-title-lg text-on-surface mb-sm">Escolher demandado</h3>
-                  <p className="text-body-md text-on-surface-variant leading-relaxed">
-                    O chamado <strong className="text-on-surface">#{ticket.number}</strong> ainda não possui demandado. Selecione o demandado para poder gravar o comentário.
-                  </p>
-                </div>
-                <div className="px-lg">
-                  <label className="text-label-md font-semibold text-on-surface-variant block mb-2">Demandado</label>
-                  <select
-                    className={`${inputClass} !rounded-xl`}
-                    value={commentFlow.responsible_id}
-                    onChange={(e) => setCommentFlow((p) => ({ ...p, responsible_id: e.target.value }))}
-                  >
-                    <option value="">Selecione…</option>
-                    {users
-                      .filter((u) => (u.sectors || []).some((s) => s.id === ticket.responsible_sector_id))
-                      .map((u) => (
-                        <option key={u.id} value={u.id}>{u.name}</option>
-                      ))}
-                  </select>
-                </div>
-                <div className="flex gap-sm p-lg bg-surface-container-low/60 mt-lg">
-                  <button
-                    type="button"
-                    onClick={() => setCommentFlowOpen(false)}
-                    className="flex-1 px-md py-sm rounded-lg border border-outline-variant text-on-surface-variant font-label-md hover:bg-surface-container-low transition-all"
-                  >
-                    Cancelar
-                  </button>
-                  <button
-                    type="button"
-                    disabled={!commentFlow.responsible_id || sending}
-                    onClick={continueToSituation}
-                    className="flex-1 px-md py-sm rounded-lg bg-primary text-on-primary font-label-md shadow-md shadow-primary/20 hover:bg-surface-tint transition-all disabled:opacity-50"
-                  >
-                    {sending ? 'Gravando…' : 'Continuar'}
-                  </button>
-                </div>
-              </>
+              <ChooseResponsibleScreen
+                ticket={ticket}
+                users={users}
+                responsibleId={commentFlow.responsible_id}
+                onResponsibleChange={(v) => setCommentFlow((p) => ({ ...p, responsible_id: v }))}
+                onCancel={() => setCommentFlowOpen(false)}
+                onContinue={continueToSituation}
+                sending={sending}
+                message="Selecione o demandado para poder gravar o comentário."
+              />
             ) : commentFlow.step === 'choose' ? (
               <>
                 <div className="p-lg pt-xl text-center">
@@ -1076,7 +1110,165 @@ export default function VisualizarChamado() {
           </div>
         </div>
       )}
+
+      {situationFlowOpen && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-fade-in" onClick={() => !sending && setSituationFlowOpen(false)}>
+          <div className="relative w-full max-w-md bg-surface-container-lowest rounded-2xl shadow-2xl overflow-hidden animate-scale-in" onClick={(e) => e.stopPropagation()}>
+            <div className="h-1.5 bg-gradient-to-r from-primary via-primary-container to-tertiary" />
+
+            {situationFlow.step === 'chooseResponsible' ? (
+              <ChooseResponsibleScreen
+                ticket={ticket}
+                users={users}
+                responsibleId={situationFlow.responsible_id}
+                onResponsibleChange={(v) => setSituationFlow((p) => ({ ...p, responsible_id: v }))}
+                onCancel={() => setSituationFlowOpen(false)}
+                onContinue={continueSituationFlow}
+                sending={sending}
+                message="Selecione o demandado para poder alterar a situação."
+              />
+            ) : situationFlow.step === 'choose' ? (
+              <>
+                <div className="p-lg pt-xl text-center">
+                  <div className="mx-auto w-14 h-14 rounded-full flex items-center justify-center mb-md text-primary bg-primary/10">
+                    <span className="material-symbols-outlined text-[28px]">swap_horiz</span>
+                  </div>
+                  <h3 className="font-title-lg text-title-lg text-on-surface mb-sm">Escolher situação</h3>
+                  <p className="text-body-md text-on-surface-variant leading-relaxed">
+                    Selecione a nova situação do chamado <strong className="text-on-surface">#{ticket.number}</strong>.
+                  </p>
+                </div>
+                <div className="px-lg max-h-64 overflow-y-auto custom-scrollbar space-y-2">
+                  {available.map((s) => (
+                    <button
+                      key={s.id}
+                      type="button"
+                      onClick={() => setSituationFlow((p) => ({ ...p, step: 'confirm', target: s }))}
+                      className="w-full flex items-center gap-3 rounded-xl px-md py-sm font-label-md font-semibold transition-all"
+                      style={{ backgroundColor: s.color ? `${s.color}14` : '#e0e0e0', color: s.color || '#3d4146' }}
+                    >
+                      <span className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: s.color || '#868c92' }}></span>
+                      {s.name}
+                      <span className="material-symbols-outlined text-[16px] ml-auto">chevron_right</span>
+                    </button>
+                  ))}
+                  {available.length === 0 && (
+                    <p className="text-body-md text-on-surface-variant text-center py-md">Não há situações disponíveis para alteração.</p>
+                  )}
+                </div>
+                <div className="flex gap-sm p-lg bg-surface-container-low/60 mt-lg">
+                  <button
+                    type="button"
+                    onClick={() => setSituationFlow((p) => ({ ...p, step: 'chooseResponsible' }))}
+                    disabled={sending}
+                    className="flex-1 px-md py-sm rounded-lg border border-outline-variant text-on-surface-variant font-label-md hover:bg-surface-container-low transition-all"
+                  >
+                    Voltar
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="p-lg pt-xl text-center">
+                  <div className="mx-auto w-14 h-14 rounded-full flex items-center justify-center mb-md text-primary bg-primary/10">
+                    <span className="material-symbols-outlined text-[28px]">fact_check</span>
+                  </div>
+                  <h3 className="font-title-lg text-title-lg text-on-surface mb-sm">Confirmar alteração de situação</h3>
+                  {situationFlow.responsible_id && (
+                    <div className="mb-md inline-flex items-center gap-2 rounded-full px-lg py-sm bg-primary/10 text-primary font-label-md font-semibold">
+                      <span className="material-symbols-outlined text-[16px] shrink-0">support_agent</span>
+                      Demandado: {users.find((u) => String(u.id) === String(situationFlow.responsible_id))?.name}
+                    </div>
+                  )}
+                  {situationFlow.target ? (
+                    <>
+                      <div className="flex items-center justify-center gap-sm">
+                        <SituationChip label={ticket.situation?.name || '—'} color={ticket.situation?.color} />
+                        <span className="material-symbols-outlined text-primary text-[28px] shrink-0">arrow_forward</span>
+                        <SituationChip label={situationFlow.target.name} color={situationFlow.target.color} />
+                      </div>
+                      <p className="text-body-md text-on-surface-variant mt-sm leading-relaxed">
+                        A situação do chamado <strong className="text-on-surface">#{ticket.number}</strong> será alterada para <strong className="text-on-surface">{situationFlow.target.name}</strong>.
+                      </p>
+                    </>
+                  ) : (
+                    <p className="text-body-md text-on-surface-variant leading-relaxed">
+                      Nenhuma situação selecionada. Volte e escolha a situação desejada.
+                    </p>
+                  )}
+                </div>
+                <div className="flex gap-sm p-lg bg-surface-container-low/60 mt-lg">
+                  <button
+                    type="button"
+                    onClick={() => setSituationFlow((p) => ({ ...p, step: 'choose', target: null }))}
+                    disabled={sending}
+                    className="flex-1 px-md py-sm rounded-lg border border-outline-variant text-on-surface-variant font-label-md hover:bg-surface-container-low transition-all"
+                  >
+                    Voltar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={confirmSituationFlow}
+                    disabled={sending || !situationFlow.target}
+                    className="flex-1 px-md py-sm rounded-lg bg-primary text-on-primary font-label-md shadow-md shadow-primary/20 hover:bg-surface-tint transition-all disabled:opacity-50"
+                  >
+                    {sending ? 'Gravando…' : 'Confirmar'}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
     </PageShell>
+  )
+}
+
+function ChooseResponsibleScreen({ ticket, users, responsibleId, onResponsibleChange, onCancel, onContinue, sending, message }) {
+  return (
+    <>
+      <div className="p-lg pt-xl text-center">
+        <div className="mx-auto w-14 h-14 rounded-full flex items-center justify-center mb-md text-primary bg-primary/10">
+          <span className="material-symbols-outlined text-[28px]">support_agent</span>
+        </div>
+        <h3 className="font-title-lg text-title-lg text-on-surface mb-sm">Escolher demandado</h3>
+        <p className="text-body-md text-on-surface-variant leading-relaxed">
+          O chamado <strong className="text-on-surface">#{ticket.number}</strong> ainda não possui demandado. {message}
+        </p>
+      </div>
+      <div className="px-lg">
+        <label className="text-label-md font-semibold text-on-surface-variant block mb-2">Demandado</label>
+        <select
+          className={`${inputClass} !rounded-xl`}
+          value={responsibleId}
+          onChange={(e) => onResponsibleChange(e.target.value)}
+        >
+          <option value="">Selecione…</option>
+          {users
+            .filter((u) => (u.sectors || []).some((s) => s.id === ticket.responsible_sector_id))
+            .map((u) => (
+              <option key={u.id} value={u.id}>{u.name}</option>
+            ))}
+        </select>
+      </div>
+      <div className="flex gap-sm p-lg bg-surface-container-low/60 mt-lg">
+        <button
+          type="button"
+          onClick={onCancel}
+          className="flex-1 px-md py-sm rounded-lg border border-outline-variant text-on-surface-variant font-label-md hover:bg-surface-container-low transition-all"
+        >
+          Cancelar
+        </button>
+        <button
+          type="button"
+          disabled={!responsibleId || sending}
+          onClick={onContinue}
+          className="flex-1 px-md py-sm rounded-lg bg-primary text-on-primary font-label-md shadow-md shadow-primary/20 hover:bg-surface-tint transition-all disabled:opacity-50"
+        >
+          {sending ? 'Gravando…' : 'Continuar'}
+        </button>
+      </div>
+    </>
   )
 }
 
