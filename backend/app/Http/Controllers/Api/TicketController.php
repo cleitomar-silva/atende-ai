@@ -63,7 +63,12 @@ class TicketController extends Controller
 
         foreach (['requesting_sector_id', 'requesting_user_id', 'responsible_sector_id', 'responsible_user_id', 'classification_id', 'situation_id', 'number'] as $f) {
             if ($request->filled($f)) {
-                $query->where($f, $request->{$f});
+                $value = $request->{$f};
+                if (is_array($value)) {
+                    $query->whereIn($f, array_map('intval', array_values(array_filter($value))));
+                } else {
+                    $query->where($f, $value);
+                }
             }
         }
 
@@ -83,7 +88,9 @@ class TicketController extends Controller
             $query->whereHas('classification', fn ($c) => $c->where('group_id', $request->group_id));
         }
         if ($request->filled('category_id')) {
-            $query->whereHas('classification', fn ($c) => $c->where('category_id', $request->category_id));
+            $categoryIds = $request->category_id;
+            $categoryIds = is_array($categoryIds) ? $categoryIds : [$categoryIds];
+            $query->whereHas('classification', fn ($c) => $c->whereIn('category_id', array_map('intval', array_values(array_filter($categoryIds)))));
         }
 
         $tickets = $query->orderByDesc('created_at')->paginate($request->integer('per_page', 15));

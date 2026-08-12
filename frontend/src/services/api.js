@@ -33,7 +33,14 @@ export async function api(path, { method = 'GET', body, headers, query } = {}) {
   if (query) {
     const params = new URLSearchParams()
     Object.entries(query).forEach(([key, value]) => {
-      if (value !== '' && value !== null && value !== undefined) params.set(key, value)
+      if (value === '' || value === null || value === undefined) return
+      if (Array.isArray(value)) {
+        value.forEach((v) => {
+          if (v !== '' && v !== null && v !== undefined) params.append(`${key}[]`, v)
+        })
+      } else {
+        params.set(key, value)
+      }
     })
     const qs = params.toString()
     if (qs) url += `?${qs}`

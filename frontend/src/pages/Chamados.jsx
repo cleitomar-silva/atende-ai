@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import PageShell from '../components/dashboard/PageShell.jsx'
 import { Card, PageHeader, Spinner, EmptyState, StatusBadge, Modal, toggleButton } from '../components/dashboard/ui.jsx'
@@ -6,6 +6,14 @@ import { api, formatDate } from '../services/api'
 
 const FILTER_STORAGE_KEY = 'atendeai_selected_filter_types'
 const DEFAULT_FILTER_TYPES = ['number', 'opening']
+
+const MULTI_FILTERS = {
+  situation: { key: 'situation_id', list: 'situations' },
+  classification: { key: 'classification_id', list: 'classifications' },
+  category: { key: 'category_id', list: 'categories' },
+  requesting_sector: { key: 'requesting_sector_id', list: 'sectors' },
+  requesting_user: { key: 'requesting_user_id', list: 'users' },
+}
 
 const loadSelectedTypes = () => {
   try {
@@ -31,10 +39,21 @@ export default function Chamados() {
   const [hasFetched, setHasFetched] = useState(false)
   const [filterOpen, setFilterOpen] = useState(false)
   const [selectedTypes, setSelectedTypes] = useState(loadSelectedTypes)
+  const [openDropdown, setOpenDropdown] = useState(null)
+  const barRef = useRef(null)
 
   useEffect(() => {
     localStorage.setItem(FILTER_STORAGE_KEY, JSON.stringify(selectedTypes))
   }, [selectedTypes])
+
+  useEffect(() => {
+    if (!openDropdown) return
+    const handle = (e) => {
+      if (barRef.current && !barRef.current.contains(e.target)) setOpenDropdown(null)
+    }
+    document.addEventListener('mousedown', handle)
+    return () => document.removeEventListener('mousedown', handle)
+  }, [openDropdown])
 
   const filterDefs = [
     { id: 'number', label: 'Nº Chamado', keys: ['number'] },
@@ -53,6 +72,13 @@ export default function Chamados() {
     setSelectedTypes([])
   }
 
+  const toggleListValue = (key, value) =>
+    setFilters((p) => {
+      const cur = Array.isArray(p[key]) ? p[key] : []
+      const next = cur.includes(value) ? cur.filter((v) => v !== value) : [...cur, value]
+      return { ...p, [key]: next }
+    })
+
   const removeKeys = (keys) =>
     setFilters((p) => {
       const next = { ...p }
@@ -70,92 +96,82 @@ export default function Chamados() {
   }
 
   const renderBarControl = (def) => {
-    const icons = {
-      number: 'tag',
-      situation: 'traffic',
-      classification: 'category',
-      category: 'folder',
-      requesting_sector: 'apartment',
-      requesting_user: 'person',
-      opening: 'calendar_month',
-      search: 'search',
-    }
     const chipClass =
-      'group/field inline-flex items-center gap-2 h-10 bg-surface-container-lowest border border-outline-variant rounded-full pl-3 pr-2 shadow-sm transition-all hover:border-primary/60 focus-within:border-primary/70 cursor-pointer'
-    const labelClass = 'font-label-md font-semibold text-on-surface-variant whitespace-nowrap'
+      'flex flex-col gap-0.5 bg-surface-container-lowest border border-outline-variant rounded-xl px-3 py-1.5 shadow-sm transition-all hover:border-primary/60 cursor-pointer min-w-[130px]'
+    const labelClass = 'text-[10px] font-bold uppercase tracking-wider text-on-surface-variant whitespace-nowrap'
     const inputClass =
       'outline-none bg-transparent border-none text-body-md font-medium text-primary placeholder:text-outline focus:ring-0 rounded focus:bg-primary/5 px-1 w-24 min-w-0'
-    const selectClass = (hasValue) =>
-      `appearance-none outline-none bg-transparent border-none text-body-md font-medium cursor-pointer px-1 max-w-[130px] ${hasValue ? 'text-primary' : 'text-on-surface-variant'}`
-    const chevron = (
-      <span className="material-symbols-outlined pointer-events-none -ml-1 text-[16px] text-on-surface-variant">
-        expand_more
-      </span>
-    )
-    const closeBtn = (
-      <button
-        onClick={() => toggleFilter(def.id)}
-        className="p-0.5 -mr-0.5 rounded-full text-on-surface-variant hover:bg-error-container/60 hover:text-error transition-colors"
-        title="Remover filtro"
-      >
-        <span className="material-symbols-outlined text-[16px]">close</span>
-      </button>
-    )
+    const closeBtnClass =
+      'p-0.5 -mr-1 rounded-full text-on-surface-variant hover:bg-error-container/60 hover:text-error transition-colors'
+    const labelRowClass = 'flex items-center justify-between gap-2 w-full'
+
+    if (MULTI_FILTERS[def.id]) {
+      const cfg = MULTI_FILTERS[def.id]
+      const list = resources[cfg.list] || []
+      const selected = Array.isArray(filters[cfg.key]) ? filters[cfg.key] : []
+      const isOpen = openDropdown === def.id
+      const summary =
+        selected.length === 0
+          ? 'Todos'
+          : selected.length === 1
+            ? (list.find((x) => String(x.id) === String(selected[0]))?.name ?? selected[0])
+            : `${selected.length} selecionados`
+
+      return (
+        <div className="relative" key={def.id}>
+          <div
+            className={`${chipClass} ${isOpen ? 'border-primary/70' : ''}`}
+            onClick={() => setOpenDropdown(isOpen ? null : def.id)}
+          >
+            <div className={labelRowClass}>
+              <span className={labelClass}>{def.label}</span>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation()
+                  toggleFilter(def.id)
+                  setOpenDropdown(null)
+                }}
+                className={closeBtnClass}
+                title="Remover filtro"
+              >
+                <span className="material-symbols-outlined text-[16px]">close</span>
+              </button>
+            </div>
+            <div className="flex items-center justify-between gap-1 w-full">
+              <span className={`text-body-md font-medium truncate ${selected.length ? 'text-primary' : 'text-on-surface-variant'}`}>{summary}</span>
+              <span className={`material-symbols-outlined text-[16px] text-on-surface-variant shrink-0 transition-transform ${isOpen ? 'rotate-180' : ''}`}>expand_more</span>
+            </div>
+          </div>
+
+          {isOpen && (
+            <div className="absolute top-full mt-1 left-0 z-50 w-64 bg-surface-container-lowest border border-outline-variant rounded-xl shadow-lg p-sm max-h-64 overflow-y-auto custom-scrollbar">
+              {selected.length > 0 && (
+                <button
+                  onClick={() => setFilters((p) => ({ ...p, [cfg.key]: [] }))}
+                  className="w-full text-left px-md py-sm text-label-md font-semibold text-primary hover:bg-primary/5 rounded mb-xs"
+                >
+                  Limpar seleção
+                </button>
+              )}
+              {list.map((item) => {
+                const checked = selected.includes(String(item.id))
+                return (
+                  <label key={item.id} className="flex items-center gap-2 px-md py-sm rounded hover:bg-surface-container-low cursor-pointer">
+                    <input type="checkbox" className="accent-primary shrink-0" checked={checked} onChange={() => toggleListValue(cfg.key, String(item.id))} />
+                    <span className="text-body-md truncate">{item.name}</span>
+                  </label>
+                )
+              })}
+            </div>
+          )}
+        </div>
+      )
+    }
 
     let control
     if (def.id === 'number') {
       control = (
         <input type="number" min="0" value={filters.number || ''} onChange={(e) => change('number', e.target.value)} className={inputClass} placeholder="Ex.: 123" title="Nº do chamado" />
-      )
-    } else if (def.id === 'situation') {
-      control = (
-        <div className="flex items-center gap-0.5">
-          <select value={filters.situation_id || ''} onChange={(e) => change('situation_id', e.target.value)} className={selectClass(!!filters.situation_id)}>
-            <option value="">Todos</option>
-            {resources.situations.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-          </select>
-          {chevron}
-        </div>
-      )
-    } else if (def.id === 'classification') {
-      control = (
-        <div className="flex items-center gap-0.5">
-          <select value={filters.classification_id || ''} onChange={(e) => change('classification_id', e.target.value)} className={selectClass(!!filters.classification_id)}>
-            <option value="">Todos</option>
-            {resources.classifications.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-          </select>
-          {chevron}
-        </div>
-      )
-    } else if (def.id === 'category') {
-      control = (
-        <div className="flex items-center gap-0.5">
-          <select value={filters.category_id || ''} onChange={(e) => change('category_id', e.target.value)} className={selectClass(!!filters.category_id)}>
-            <option value="">Todas</option>
-            {resources.categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-          </select>
-          {chevron}
-        </div>
-      )
-    } else if (def.id === 'requesting_sector') {
-      control = (
-        <div className="flex items-center gap-0.5">
-          <select value={filters.requesting_sector_id || ''} onChange={(e) => change('requesting_sector_id', e.target.value)} className={selectClass(!!filters.requesting_sector_id)}>
-            <option value="">Todos</option>
-            {resources.sectors.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-          </select>
-          {chevron}
-        </div>
-      )
-    } else if (def.id === 'requesting_user') {
-      control = (
-        <div className="flex items-center gap-0.5">
-          <select value={filters.requesting_user_id || ''} onChange={(e) => change('requesting_user_id', e.target.value)} className={selectClass(!!filters.requesting_user_id)}>
-            <option value="">Todos</option>
-            {resources.users.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
-          </select>
-          {chevron}
-        </div>
       )
     } else if (def.id === 'opening') {
       control = (
@@ -172,11 +188,14 @@ export default function Chamados() {
     }
 
     return (
-      <div className={chipClass}>
-        <span className="material-symbols-outlined text-[18px] text-on-surface-variant shrink-0">{icons[def.id] || 'filter_alt'}</span>
-        <span className={labelClass}>{def.label}</span>
-        {control}
-        {closeBtn}
+      <div className={chipClass} key={def.id}>
+        <div className={labelRowClass}>
+          <span className={labelClass}>{def.label}</span>
+          <button onClick={() => toggleFilter(def.id)} className={closeBtnClass} title="Remover filtro">
+            <span className="material-symbols-outlined text-[16px]">close</span>
+          </button>
+        </div>
+        <div className="flex items-center w-full">{control}</div>
       </div>
     )
   }
@@ -200,7 +219,10 @@ export default function Chamados() {
     return () => clearTimeout(timer)
   }, [JSON.stringify(filters)])
 
-  const hasActiveFilters = Object.values(filters).some((v) => v !== '' && v !== null && v !== undefined)
+  const hasActiveFilters = Object.values(filters).some((v) => {
+    if (Array.isArray(v)) return v.length > 0
+    return v !== '' && v !== null && v !== undefined
+  })
 
   return (
     <div>
@@ -221,7 +243,7 @@ export default function Chamados() {
             <span className="material-symbols-outlined text-on-surface-variant group-hover:text-primary transition-colors">filter_list</span>
             <span className="font-semibold text-label-md uppercase">Filtros</span>
           </button>
-          <div className="flex gap-sm flex-1 flex-wrap items-center min-w-0">
+          <div className="flex gap-sm flex-1 flex-wrap items-center min-w-0" ref={barRef}>
             {selectedTypes.length === 0 ? (
               <p className="text-label-md text-on-surface-variant ml-md flex items-center gap-1">
                 <span className="material-symbols-outlined text-[16px]">filter_alt_off</span>
