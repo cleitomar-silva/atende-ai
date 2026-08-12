@@ -4,19 +4,45 @@ import PageShell from '../components/dashboard/PageShell.jsx'
 import { Card, PageHeader, Spinner, EmptyState, StatusBadge, Modal, toggleButton } from '../components/dashboard/ui.jsx'
 import { api, formatDate } from '../services/api'
 
+const FILTER_STORAGE_KEY = 'atendeai_selected_filter_types'
+const DEFAULT_FILTER_TYPES = ['number', 'opening']
+
+const loadSelectedTypes = () => {
+  try {
+    const raw = localStorage.getItem(FILTER_STORAGE_KEY)
+    if (raw) {
+      const parsed = JSON.parse(raw)
+      const valid = Array.isArray(parsed) ? parsed.filter((id) => [
+        'number', 'situation', 'classification', 'category', 'requesting_sector', 'requesting_user', 'opening', 'search',
+      ].includes(id)) : []
+      if (valid.length) return valid
+    }
+  } catch {
+    // ignora valores corrompidos e usa o padrão
+  }
+  return DEFAULT_FILTER_TYPES
+}
+
 export default function Chamados() {
   const [tickets, setTickets] = useState([])
   const [loading, setLoading] = useState(true)
-  const [resources, setResources] = useState({ sectors: [], users: [], classifications: [], situations: [] })
+  const [resources, setResources] = useState({ sectors: [], users: [], classifications: [], situations: [], categories: [] })
   const [filters, setFilters] = useState({})
   const [hasFetched, setHasFetched] = useState(false)
   const [filterOpen, setFilterOpen] = useState(false)
-  const [selectedTypes, setSelectedTypes] = useState([])
+  const [selectedTypes, setSelectedTypes] = useState(loadSelectedTypes)
+
+  useEffect(() => {
+    localStorage.setItem(FILTER_STORAGE_KEY, JSON.stringify(selectedTypes))
+  }, [selectedTypes])
 
   const filterDefs = [
+    { id: 'number', label: 'Nº Chamado', keys: ['number'] },
     { id: 'situation', label: 'Situação', keys: ['situation_id'] },
     { id: 'classification', label: 'Classificação', keys: ['classification_id'] },
-    { id: 'responsible_sector', label: 'Setor Demandado', keys: ['responsible_sector_id'] },
+    { id: 'category', label: 'Categoria', keys: ['category_id'] },
+    { id: 'requesting_sector', label: 'Setor Solicitante', keys: ['requesting_sector_id'] },
+    { id: 'requesting_user', label: 'Usuário Solicitante', keys: ['requesting_user_id'] },
     { id: 'opening', label: 'Data de Abertura', keys: ['opened_from', 'opened_to'] },
     { id: 'search', label: 'Busca', keys: ['q'] },
   ]
@@ -44,16 +70,46 @@ export default function Chamados() {
   }
 
   const renderBarControl = (def) => {
+    const icons = {
+      number: 'tag',
+      situation: 'traffic',
+      classification: 'category',
+      category: 'folder',
+      requesting_sector: 'apartment',
+      requesting_user: 'person',
+      opening: 'calendar_month',
+      search: 'search',
+    }
+    const chipClass =
+      'group/field inline-flex items-center gap-2 h-10 bg-surface-container-lowest border border-outline-variant rounded-full pl-3 pr-2 shadow-sm transition-all hover:border-primary/60 focus-within:border-primary/70 cursor-pointer'
+    const labelClass = 'font-label-md font-semibold text-on-surface-variant whitespace-nowrap'
+    const inputClass =
+      'outline-none bg-transparent border-none text-body-md font-medium text-primary placeholder:text-outline focus:ring-0 rounded focus:bg-primary/5 px-1 w-24 min-w-0'
     const selectClass = (hasValue) =>
-      `appearance-none outline-none w-full bg-transparent border-none py-0 pl-1 pr-6 text-body-md focus:ring-0 focus-visible:outline-none cursor-pointer font-medium ${hasValue ? 'text-primary' : 'text-on-surface-variant'}`
+      `appearance-none outline-none bg-transparent border-none text-body-md font-medium cursor-pointer px-1 max-w-[130px] ${hasValue ? 'text-primary' : 'text-on-surface-variant'}`
     const chevron = (
-      <span className="material-symbols-outlined pointer-events-none absolute right-0 top-1/2 -translate-y-1/2 text-[16px] text-on-surface-variant">
+      <span className="material-symbols-outlined pointer-events-none -ml-1 text-[16px] text-on-surface-variant">
         expand_more
       </span>
     )
-    if (def.id === 'situation') {
-      return (
-        <div className="relative w-40 items-center">
+    const closeBtn = (
+      <button
+        onClick={() => toggleFilter(def.id)}
+        className="p-0.5 -mr-0.5 rounded-full text-on-surface-variant hover:bg-error-container/60 hover:text-error transition-colors"
+        title="Remover filtro"
+      >
+        <span className="material-symbols-outlined text-[16px]">close</span>
+      </button>
+    )
+
+    let control
+    if (def.id === 'number') {
+      control = (
+        <input type="number" min="0" value={filters.number || ''} onChange={(e) => change('number', e.target.value)} className={inputClass} placeholder="Ex.: 123" title="Nº do chamado" />
+      )
+    } else if (def.id === 'situation') {
+      control = (
+        <div className="flex items-center gap-0.5">
           <select value={filters.situation_id || ''} onChange={(e) => change('situation_id', e.target.value)} className={selectClass(!!filters.situation_id)}>
             <option value="">Todos</option>
             {resources.situations.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
@@ -61,10 +117,9 @@ export default function Chamados() {
           {chevron}
         </div>
       )
-    }
-    if (def.id === 'classification') {
-      return (
-        <div className="relative w-40 items-center">
+    } else if (def.id === 'classification') {
+      control = (
+        <div className="flex items-center gap-0.5">
           <select value={filters.classification_id || ''} onChange={(e) => change('classification_id', e.target.value)} className={selectClass(!!filters.classification_id)}>
             <option value="">Todos</option>
             {resources.classifications.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
@@ -72,29 +127,57 @@ export default function Chamados() {
           {chevron}
         </div>
       )
-    }
-    if (def.id === 'responsible_sector') {
-      return (
-        <div className="relative w-40 items-center">
-          <select value={filters.responsible_sector_id || ''} onChange={(e) => change('responsible_sector_id', e.target.value)} className={selectClass(!!filters.responsible_sector_id)}>
+    } else if (def.id === 'category') {
+      control = (
+        <div className="flex items-center gap-0.5">
+          <select value={filters.category_id || ''} onChange={(e) => change('category_id', e.target.value)} className={selectClass(!!filters.category_id)}>
+            <option value="">Todas</option>
+            {resources.categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+          </select>
+          {chevron}
+        </div>
+      )
+    } else if (def.id === 'requesting_sector') {
+      control = (
+        <div className="flex items-center gap-0.5">
+          <select value={filters.requesting_sector_id || ''} onChange={(e) => change('requesting_sector_id', e.target.value)} className={selectClass(!!filters.requesting_sector_id)}>
             <option value="">Todos</option>
             {resources.sectors.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
           </select>
           {chevron}
         </div>
       )
-    }
-    if (def.id === 'opening') {
-      return (
-        <div className="flex items-center gap-1">
-          <input type="date" value={filters.opened_from || ''} onChange={(e) => change('opened_from', e.target.value)} className="appearance-none outline-none bg-transparent border-none py-0 pl-1 pr-1 text-body-md focus:ring-0 focus-visible:outline-none cursor-pointer text-primary" title="Data de abertura (de)" />
-          <span className="text-on-surface-variant px-0.5">–</span>
-          <input type="date" value={filters.opened_to || ''} onChange={(e) => change('opened_to', e.target.value)} className="appearance-none outline-none bg-transparent border-none py-0 pl-1 pr-1 text-body-md focus:ring-0 focus-visible:outline-none cursor-pointer text-primary" title="Data de abertura (até)" />
+    } else if (def.id === 'requesting_user') {
+      control = (
+        <div className="flex items-center gap-0.5">
+          <select value={filters.requesting_user_id || ''} onChange={(e) => change('requesting_user_id', e.target.value)} className={selectClass(!!filters.requesting_user_id)}>
+            <option value="">Todos</option>
+            {resources.users.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
+          </select>
+          {chevron}
         </div>
       )
+    } else if (def.id === 'opening') {
+      control = (
+        <div className="flex items-center gap-1 pr-1">
+          <input type="date" value={filters.opened_from || ''} onChange={(e) => change('opened_from', e.target.value)} className="outline-none bg-transparent border-none text-body-md font-medium text-primary focus:ring-0 cursor-pointer" title="Data de abertura (de)" />
+          <span className="text-on-surface-variant text-label-md">–</span>
+          <input type="date" value={filters.opened_to || ''} onChange={(e) => change('opened_to', e.target.value)} className="outline-none bg-transparent border-none text-body-md font-medium text-primary focus:ring-0 cursor-pointer" title="Data de abertura (até)" />
+        </div>
+      )
+    } else {
+      control = (
+        <input value={filters.q || ''} onChange={(e) => change('q', e.target.value)} className={inputClass} placeholder="Buscar…" />
+      )
     }
+
     return (
-      <input value={filters.q || ''} onChange={(e) => change('q', e.target.value)} className="outline-none bg-transparent border-none py-0 pl-1 pr-2 text-body-md focus:ring-0 focus-visible:outline-none text-primary placeholder:text-outline" placeholder="Buscar…" />
+      <div className={chipClass}>
+        <span className="material-symbols-outlined text-[18px] text-on-surface-variant shrink-0">{icons[def.id] || 'filter_alt'}</span>
+        <span className={labelClass}>{def.label}</span>
+        {control}
+        {closeBtn}
+      </div>
     )
   }
 
@@ -107,8 +190,8 @@ export default function Chamados() {
   }
 
   useEffect(() => {
-    Promise.all([api('/sectors'), api('/users'), api('/classifications'), api('/situations')])
-      .then(([s, u, c, si]) => setResources({ sectors: s.sectors, users: u.users, classifications: c.classifications, situations: si.situations }))
+    Promise.all([api('/sectors'), api('/users'), api('/classifications'), api('/situations'), api('/categories')])
+      .then(([s, u, c, si, cat]) => setResources({ sectors: s.sectors, users: u.users, classifications: c.classifications, situations: si.situations, categories: cat.categories }))
       .catch(() => {})
   }, [])
 
@@ -147,24 +230,11 @@ export default function Chamados() {
             ) : (
               selectedTypes.map((id) => {
                 const def = filterDefs.find((d) => d.id === id)
-                return (
-                  <div
-                    key={id}
-                    className="bg-white border border-outline-variant rounded-lg shadow-sm px-3 pt-1.5 pb-1 transition-all hover:border-primary/60"
-                  >
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant leading-none whitespace-nowrap">{def.label}</span>
-                      <button onClick={() => toggleFilter(id)} className="p-0.5 -mr-1 rounded-full text-on-surface-variant hover:bg-error-container hover:text-error transition-colors" title="Remover filtro">
-                        <span className="material-symbols-outlined text-[16px]">close</span>
-                      </button>
-                    </div>
-                    <div className="mt-1">{renderBarControl(def)}</div>
-                  </div>
-                )
+                return <div key={id}>{renderBarControl(def)}</div>
               })
             )}
           </div>
-          <button onClick={resetFilters} disabled={!hasActiveFilters} className="flex items-center gap-1 text-label-md font-semibold text-on-surface-variant hover:text-error px-md whitespace-nowrap transition-colors disabled:opacity-50">
+          <button onClick={resetFilters} disabled={!hasActiveFilters && selectedTypes.length === 0} className="flex items-center gap-1 text-label-md font-semibold text-on-surface-variant hover:text-error px-md whitespace-nowrap transition-colors disabled:opacity-50">
             <span className="material-symbols-outlined text-[16px]">restart_alt</span>
             Limpar Filtros
           </button>
@@ -194,16 +264,16 @@ export default function Chamados() {
             <EmptyState message="Nenhum chamado encontrado." />
           ) : (
             <div className="overflow-x-auto pb-lg">
-              <table className="w-full zebra-table">
-                <thead>
-                  <tr className="text-label-md text-on-surface-variant uppercase">
-                    <th className="px-lg py-sm text-left">Nº</th>
-                    <th className="px-lg py-sm text-left">Abertura</th>
-                    <th className="px-lg py-sm text-left">Título</th>
-                    <th className="px-lg py-sm text-left">Situação</th>
-                    <th className="px-lg py-sm text-left">Solicitante</th>
-                    <th className="px-lg py-sm text-left">Demandado</th>
-                    <th className="px-lg py-sm text-right">Ações</th>
+              <table className="w-full text-left zebra-table border-collapse">
+                <thead className="sticky top-0 bg-white z-10 border-b-2 border-outline-variant">
+                  <tr className="text-label-md text-on-surface-variant uppercase tracking-wider bg-primary-fixed/30">
+                    <th className="px-md py-lg font-bold">Nº</th>
+                    <th className="px-md py-lg font-bold">Abertura</th>
+                    <th className="px-md py-lg font-bold">Título</th>
+                    <th className="px-md py-lg font-bold">Situação</th>
+                    <th className="px-md py-lg font-bold">Solicitante</th>
+                    <th className="px-md py-lg font-bold">Demandado</th>
+                    <th className="px-md py-lg font-bold text-center">Ações</th>
                   </tr>
                 </thead>
                 <tbody>

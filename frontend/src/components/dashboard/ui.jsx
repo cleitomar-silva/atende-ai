@@ -52,16 +52,16 @@ export function Modal({ open, title, onClose, children }) {
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
       <div
-        className="bg-surface-container-lowest rounded-xl shadow-xl w-full max-w-md max-h-[85vh] overflow-y-auto custom-scrollbar"
+        className="bg-surface-container-lowest rounded-xl shadow-xl w-full max-w-md max-h-[85vh] flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between px-lg py-md border-b border-outline-variant">
+        <div className="flex items-center justify-between px-lg py-md border-b border-outline-variant shrink-0">
           <h3 className="font-title-lg text-title-lg text-on-surface">{title}</h3>
           <button onClick={onClose} className="p-1 text-on-surface-variant hover:text-on-surface">
             <span className="material-symbols-outlined">close</span>
           </button>
         </div>
-        <div className="p-lg">{children}</div>
+        <div className="overflow-y-auto custom-scrollbar p-lg flex-1">{children}</div>
       </div>
     </div>
   )

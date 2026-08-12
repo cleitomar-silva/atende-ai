@@ -52,16 +52,16 @@ class TicketController extends Controller
         }
 
         if ($request->filled('q')) {
-            $search = $request->q;
-            $query->where(function ($q) use ($search) {
-                $q->where('number', 'like', "%{$search}%")
-                  ->orWhere('title', 'like', "%{$search}%")
-                  ->orWhere('description', 'like', "%{$search}%")
-                  ->orWhereHas('comments', fn ($c) => $c->where('content', 'like', "%{$search}%"));
+            $like = \App\Helpers\Search::like($request->q);
+            $query->where(function ($q) use ($like) {
+                $q->whereRaw('f_unaccent(lower(number::text)) LIKE ?', [$like])
+                  ->orWhereRaw('f_unaccent(lower(title)) LIKE ?', [$like])
+                  ->orWhereRaw('f_unaccent(lower(description)) LIKE ?', [$like])
+                  ->orWhereHas('comments', fn ($c) => $c->whereRaw('f_unaccent(lower(content)) LIKE ?', [$like]));
             });
         }
 
-        foreach (['requesting_sector_id', 'requesting_user_id', 'responsible_sector_id', 'responsible_user_id', 'classification_id', 'situation_id'] as $f) {
+        foreach (['requesting_sector_id', 'requesting_user_id', 'responsible_sector_id', 'responsible_user_id', 'classification_id', 'situation_id', 'number'] as $f) {
             if ($request->filled($f)) {
                 $query->where($f, $request->{$f});
             }
